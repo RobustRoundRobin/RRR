@@ -1,0 +1,177 @@
+interpreter: bash -c
+
+# NOTICE: Some of these arrangements are very transitory. Once we have things
+# rolling, this repository may/should ? get completely removed. It may become a
+# long term home for shared developer conveniences.
+#
+# This tusk file has some hard opinions about the *relative* location and
+# directory names for RoRoRo's quorum fork and rororo go package.
+
+name: rororodev
+tasks:
+  set-build-env:
+    run:
+
+      # OPINIONS EXPRESSED HERE
+      #
+      # set-environment does not support sh eval, so we can't do very much
+      # here. All the relative paths must be resolved by the task definitions
+      # which rely on them
+      - set-environment:
+          # GOPATH
+          #
+          # For quorum's fork, this is where GOPATH should point. upstream
+          # go-ethereum has moved over to go.mod but quorum has not caught up
+          # with that yet.
+          QUORUM_GOPATH: "../quorum-rororo-gopath"
+
+          # tools and tests which need to do genesis and generate wallets and
+          # so on will treat all directories under this path as 'scratch'
+          DEFAULT_NODE_DIR: "../rororo-nodes/default-node"
+
+  test-dumpconfig:
+    usage: "dumps toml config to stdout"
+    run:
+      - task: set-build-env
+      - command:
+          exec: |
+            set -e
+            export GOPATH=$(cd ${QUORUM_GOPATH}; pwd)
+            export DATA_DIR=$(mkdir -p ${DEFAULT_NODE_DIR}/data && cd ${DEFAULT_NODE_DIR}/data; pwd)
+            export PRIVATE_CONFIG=ignore
+
+            go run github.com/ethereum/go-ethereum/cmd/geth \
+                --rororo.candidates 6 \
+                --rororo.endorsers 101 \
+                --datadir ${DATA_DIR} \
+                --gcmode archive \
+                --syncmode full \
+                --verbosity 3 \
+                --networkid 99 \
+                --miner.gastarget 3000000000 \
+                --rpc \
+                --rpccorsdomain "*" \
+                --rpcvhosts "*" \
+                --rpcaddr 0.0.0.0 \
+                --ws \
+                --wsorigins "*" \
+                --wsaddr "0.0.0.0" \
+                --rpcapi "admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum" \
+                dumpconfig
+  wallet:
+    usage: "create a wallet (python deps: sha3, coincurve)"
+    options:
+      name:
+        usage: "basename for wallet files .key, .pub and .addr"
+        default: genesis-wallet
+      nodedir:
+        usage: "parent dir for node --datadir, defaults to DEFAULT_NODE_DIR"
+        default: ""
+
+    run:
+      - task: set-build-env
+      - command:
+          exec: |
+            set -e
+            export GOPATH=$(cd $QUORUM_GOPATH; pwd)
+
+            [ -n "${nodedir}" ] && NODE_DIR="${nodedir}" || NODE_DIR=${DEFAULT_NODE_DIR}
+            mkdir -p NODE_DIR && cd ${NODE_DIR}
+
+            cat <<PYEND | python
+            import secrets, coincurve, sha3
+
+            key = sha3.keccak_256(secrets.token_bytes(32)).digest()
+            pub = coincurve.PublicKey.from_valid_secret(key).format(compressed=False)[1:]
+            addr = "0x" + sha3.keccak_256(pub).digest()[-20:].hex()
+
+            for var, mode in [("key", "b"), ("pub", "b"), ("addr", "")]:
+                with open(f"${name}.{var}", "w" + mode) as f:
+                    f.write(locals()[var])
+
+            print(addr)
+            PYEND
+
+  genesis:
+    usage: "do genesis (using go run and sources in quorum-rororo)"
+    options:
+      datadir:
+        usage: "geth init --datadir, defaults to DEFAULT_NODE_DIR/data"
+        default: ""
+        short: "d"
+      genesis:
+        usage: "genesis.json file, defaults to datadir/../gensis.json"
+        default: ""
+        short: "G"
+      force:
+        usage: "Force delete of existing datadir"
+        type: bool
+        short: "f"
+
+    run:
+      - task: set-build-env
+      - command:
+          exec: |
+            set -e
+            export GOPATH=$(cd $QUORUM_GOPATH; pwd)
+
+            [ -n "${datadir}" ] && DATA_DIR="${datadir}" || DATA_DIR=${DEFAULT_NODE_DIR}/data
+
+            if ${force}; then echo "force deleting: ${DATA_DIR}"; rm -rf ${DATA_DIR}; fi
+
+            [ -d ${DATA_DIR} ] && echo "datadir exists, -f to force delete" && exit 1
+
+            mkdir -p ${DATA_DIR} && cd ${DATA_DIR}
+            DATA_DIR=$(pwd)
+            [ -n "${genesis}" ] && GENESIS_JSON_FILE="${genesis}" || GENESIS_JSON_FILE=${DATA_DIR}/../genesis.json
+
+            go run github.com/ethereum/go-ethereum/cmd/geth \
+              --datadir=${DATA_DIR}/data init ${GENESIS_JSON_FILE}
+
+            cat ${GENESIS_JSON_FILE}
+
+  nodekey:
+    usage: "generate node key (using go run and sources in quorum-rororo)"
+    options:
+
+      nodedir:
+        usage: "parent dir for node --datadir, defaults to DEFAULT_NODE_DIR"
+        default: ""
+
+      key:
+        usage: "output file name or '/dev/stdout'"
+        default: "key"
+      enode:
+        usage: "output file name or '/dev/stdout'"
+        default: "enode"
+
+      force:
+        usage: "Force overwrite of existing key"
+        type: bool
+        short: "f"
+
+    run:
+      - task: set-build-env
+      - command:
+          exec: |
+            set -e
+            export GOPATH=$(cd $QUORUM_GOPATH; pwd)
+
+            if [[ "${key}" != "/dev/stdout" ]] || [[ "${enode}" != "/dev/stdout" ]]; then
+              [ -n "${nodedir}" ] && NODE_DIR="${nodedir}" || NODE_DIR=${DEFAULT_NODE_DIR}
+              mkdir -p NODE_DIR && cd ${NODE_DIR}
+            fi
+
+            # Note that [ -f /dev/stdout ] is FALSE, so we don't need to guard
+            # against deleting it
+
+            if ${force}; then
+              [ -f ${key} ] && echo "force deleting: ${key}" && rm -f ${key}
+              [ -f ${enode} ] && echo "force deleting: ${enode}" && rm -f ${enode}
+            fi
+            [[ -f "${key}" || -f "${enode}" ]] && echo "key or enode exist: ${key}, ${enode}. -f to force delete" && exit 1
+
+            KEY=$(go run github.com/ethereum/go-ethereum/cmd/bootnode --genkey /dev/stdout)
+            ENODE=$(echo $KEY | go run github.com/ethereum/go-ethereum/cmd/bootnode --nodekey /dev/stdin --writeaddress)
+            echo $KEY > ${key} && echo "wrote: ${key}"
+            echo $ENODE > ${enode} && echo "wrote: ${enode}"
