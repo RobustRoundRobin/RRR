@@ -19,6 +19,14 @@ assumptions (below) and you can use ./vscode/launch.json 'as is' after opening
 the quorum-rororo-gopath folder. All the usual code navigation features in
 vscode should 'just work'
 
+## Truffle for test support contracts
+
+[eth-enabled-cli-tools-with-truffle](https://www.trufflesuite.com/tutorials/creating-a-cli-with-truffle-3)
+
+Its probably the easiest path to generating transactions for development and
+testing.
+
+
 ## Layout assumptions
 
 To simplify life, the tooling in this repository makes assumptions about the
