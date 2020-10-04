@@ -29,6 +29,24 @@ tasks:
           # so on will treat all directories under this path as 'scratch'
           DEFAULT_NODE_DIR: "../rororo-nodes/default-node"
 
+  attach:
+    usage: "geth attach using go run"
+    options:
+      datadir:
+        usage: "geth  --datadir (where the geth.ipc socket file lives), defaults to DEFAULT_NODE_DIR/data"
+        default: ""
+        short: "d"
+
+    run:
+      - task: set-build-env
+      - command:
+          exec: |
+            set -e
+            export GOPATH=$(cd ${QUORUM_GOPATH}; pwd)
+            [ -n "${datadir}" ] && DATA_DIR="${datadir}" || DATA_DIR=${DEFAULT_NODE_DIR}/data
+
+            go run github.com/ethereum/go-ethereum/cmd/geth attach ${DATA_DIR}/geth.ipc
+
   test-dumpconfig:
     usage: "dumps toml config to stdout"
     run:

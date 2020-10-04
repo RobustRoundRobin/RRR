@@ -43,8 +43,6 @@ Enterprise need for large scale consortia style networks with high throughput.
 
 # Specification
 
-# Implementation
-
 Be consistent with the IBFT implementation choices as far as makes sense. To
 keep things familiar for upstream. And to ensure we don't make mistakes that
 they have avoided.
@@ -74,6 +72,23 @@ size from a particular block number.
 Nc and Ne are geth command line parameters and all participants must agree.
 This will get us going, and likely be more convenient for early development.
 
+### tr = 5 seconds
+
+But will eventually make this either configurable or derived in some way from
+Nc, Ne
+
+### Close nodes
+
+The original work found the majority of block dissemination delay to be due to
+the initial block transmission by the leader candidate. Due to high out degree
+and number of hops. Having a way to configure 'network close' nodes to serve
+has broadcast hubs for the initial block transmission is something we would
+like in from the start. The paper makes clear this does not undermine the
+security properties.
+
+### Multiple identity queues
+
+Ah, maybe not at first but definitely want a path to trying this.
 
 ## Initialisation
 
@@ -86,7 +101,10 @@ zeroed.
 
 The pk's are the node public keys for the initial members
 
-Can VerifyBranch work at all without a seed proof ?
+1. ? Can VerifyBranch work at all without a seed proof
+2. ? What happens if there are < Ne available endorsers. Especially during
+   network establishment where, operationaly, it makes sense to have a small
+   population in the genesis block and have the rest join in an early 'rush'
 
 ## Enrolment
 
@@ -107,7 +125,6 @@ An out of band mechanism is used to supply acceptable pkn's to current members
 
 Is as described in the paper
 
-
 ## IBFT (and other) issues we want to be careful of
 
 ### eth_getTransactionCount is relied on by application level tx singers
@@ -117,6 +134,8 @@ See [issue-comment](https://github.com/ethereum/EIPs/issues/650#issuecomment-360
 It's not clear to me that this can ever be reliable with concurrent application
 signers, but certainly we should not change the behaviour of api's like
 eth_getTransactionCount
+
+# Implementation
 
 # Security Considerations
 
