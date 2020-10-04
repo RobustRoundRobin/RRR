@@ -86,6 +86,8 @@ zeroed.
 
 The pk's are the node public keys for the initial members
 
+Can VerifyBranch work at all without a seed proof ?
+
 ## Enrolment
 
 In 4.1 the paper outlines the enrolment process. The candidate requests
