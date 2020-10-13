@@ -222,7 +222,5 @@ The Intent portion identifies the creator of the block and the round the Intent
 belongs too.
 
 
-https://jitsuin.atlassian.net/wiki/spaces/ENG/pages/1016430593/Authorizing+Azure+Client+Services+go
-
 # Security Considerations
 
