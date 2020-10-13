@@ -137,5 +137,92 @@ eth_getTransactionCount
 
 # Implementation
 
+## Identity establishment
+
+Initialisation and subsequent enrolment of identities.  Here we describe "Attested"
+identities, but "attested" by the geth node private keys directly.
+
+From 4.1 (in the paper) we have
+
+i.  Block0=(Q1,pk1,Q2,pk2,...,he,seed0,π0,id)
+ii. Enrolln=(Qn,pkn,r,hb)
+
+The Q's are the attestations
+
+For i. We create all the Qn "attestations" for Block0 using the chain creators
+private key to sign all the initial member public keys (including the chain
+creators).
+
+For ii. The contacted member uses its private key to attest the new member.
+
+## block header content
+
+Appendix A describes the "SelectActive" algorithm. This describes a key
+activity for the consensusm algorithm. Selecting active nodes is the basis of
+both leader candidate and endorser selection. It also features in branch
+verification.
+
+So structuring the data in the blocks (probably the block headers), so that
+this can be done efficiently and robustly is correspondingly a key
+implementation concern
+
+
+### extraData of Block0
+
+1. Ck, Cp      : Chain creator private and public keys
+2. Mk, Mp      : Chain member private and public keys
+3. he          : 0
+4. seed0       : crypto/rand for now, mansoor looking at RandHound based seeding
+5. π0          : Sig(Ck, seed0) for now, mansoor looking at VFR stuff and seed establishment
+6. Q0          : Sig(Ck, Cp)
+7. Qi          : Sig(Ck, Mpi) for all initial members
+8. CHAIN_INIT  : RLP([Q0, Cp, Qi, Mpi, ..., he, seed0, π0])
+9. CHAIN_ID    : Keccak256(INIT_VEC)
+9. extraData   : RLP([INIT_VEC, CHAIN_ID])
+
+### Enrolment data
+
+From 4.1 we have
+i.  hash (id || pkn || r || hb )
+ii. Enrolln=(Qn,pkn,r,hb, f)
+
+1. Dk, Dp      : Debutant (or re-enroling) private and public keys
+2. Ak, Ap      : Active chain member private and public keys
+3. r           : round number
+4. f           : re-enrolment flag
+5. hb          : hash of latest block
+6. U           : Keccak256(CHAIN_ID || Dp || r || hb )  created on the debutant
+7. Usig        : Sig(Dk, U)
+7. Qn          : Sig(Ak, U)
+8. EMsg        : RLP([Qn, Dp, r, hb, f])
+
+D -> request enrol -> A
+                      A -> If ok, NETORK enrol
+
+D -> request enrol -> A
+Debutant sends RLP([U, Usig]) to A (A already has Dp from connection handshake)
+                      A -> verifies, then broadcasts Emsg -> NETWORK
+
+LEADER -> includes EMsg on block
+D is now established
+
+### extraData for Blockn
+
+Needs to include
+
+    Blockr=(Intent,{Confirm},{tx},{Enroll},seedr,πr,siдc)
+
+    -- 5.2 endorsment protocol
+
+In the top -> genesis traversal of the branch identities are marked active or
+not based on finding {Confirm} messages which refer to them.
+
+The 'age' of an identity is the number of rounds since it last created a block.
+The Intent portion identifies the creator of the block and the round the Intent
+belongs too.
+
+
+https://jitsuin.atlassian.net/wiki/spaces/ENG/pages/1016430593/Authorizing+Azure+Client+Services+go
+
 # Security Considerations
 
