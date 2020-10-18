@@ -24,6 +24,29 @@
           "reveal": "always",
           "panel": "new"
         }
+      },
+      {
+        "label": "reset genesis1",
+        "type": "shell",
+        "command": "rm",
+        "args": [ "-rf", "${workspaceFolder}/../rororo-nodes/node1/data" ],
+        "group":"build",
+        "presentation": {
+          "reveal": "always",
+          "showReuseMessage": false
+        },
+      },
+      {
+        "label": "rororo genesis1",
+        "type": "shell",
+        "command": "tusk",
+        "args": [ "-q", "-f", "${workspaceFolder}/../rororo-devclutter/tusk.yml", "genesis", "-f", "--datadir", "${workspaceFolder}/../rororo-nodes/node1/data"],
+        "group":"build",
+        "presentation": {
+          "reveal": "always",
+          "panel": "new"
+        }
       }
+
     ]
   }

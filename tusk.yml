@@ -28,6 +28,7 @@ tasks:
           # tools and tests which need to do genesis and generate wallets and
           # so on will treat all directories under this path as 'scratch'
           DEFAULT_NODE_DIR: "../rororo-nodes/default-node"
+          NODE1_DIR: "../rororo-nodes/node1"
 
   attach:
     usage: "geth attach using go run"
@@ -47,19 +48,46 @@ tasks:
 
             go run github.com/ethereum/go-ethereum/cmd/geth attach ${DATA_DIR}/geth.ipc
 
-  test-dumpconfig:
-    usage: "dumps toml config to stdout"
+  gethjex:
+    usage: "geth attach --exec using go run"
+    options:
+      datadir:
+        usage: "geth  --datadir (where the geth.ipc socket file lives), defaults to DEFAULT_NODE_DIR/data"
+        default: ""
+        short: "d"
+      exec:
+        required: true
+        short: "e"
     run:
       - task: set-build-env
       - command:
           exec: |
             set -e
             export GOPATH=$(cd ${QUORUM_GOPATH}; pwd)
-            export DATA_DIR=$(mkdir -p ${DEFAULT_NODE_DIR}/data && cd ${DEFAULT_NODE_DIR}/data; pwd)
+            [ -n "${datadir}" ] && DATA_DIR="${datadir}" || DATA_DIR=${DEFAULT_NODE_DIR}/data
+
+            go run github.com/ethereum/go-ethereum/cmd/geth \
+              attach ${DATA_DIR}/geth.ipc --exec ${exec}
+
+  node1:
+    usage: "run a node"
+    options:
+      nodedir:
+        usage: "parent dir for node --datadir, defaults to DEFAULT_NODE_DIR"
+        default: ""
+
+    run:
+      - task: set-build-env
+      - command:
+          exec: |
+            set -e
+            export GOPATH=$(cd ${QUORUM_GOPATH}; pwd)
+            [ -n "${nodedir}" ] && NODE_DIR="${nodedir}" || NODE_DIR=${NODE1_DIR}
+            export DATA_DIR=$(mkdir -p ${NODE_DIR}/data && cd ${NODE_DIR}/data; pwd)
             export PRIVATE_CONFIG=ignore
 
             go run github.com/ethereum/go-ethereum/cmd/geth \
-                --rororo.candidates 6 \
+                --help --rororo.candidates 6 \
                 --rororo.endorsers 101 \
                 --datadir ${DATA_DIR} \
                 --gcmode archive \
@@ -67,15 +95,17 @@ tasks:
                 --verbosity 3 \
                 --networkid 99 \
                 --miner.gastarget 3000000000 \
+                --port 7101 \
                 --rpc \
+                --rpcport 7201 \
                 --rpccorsdomain "*" \
                 --rpcvhosts "*" \
                 --rpcaddr 0.0.0.0 \
                 --ws \
                 --wsorigins "*" \
                 --wsaddr "0.0.0.0" \
-                --rpcapi "admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum" \
-                dumpconfig
+                --wsport 7301 \
+                --rpcapi "admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum"
   wallet:
     usage: "create a wallet (python deps: sha3, coincurve)"
     options:
@@ -144,7 +174,10 @@ tasks:
             [ -n "${genesis}" ] && GENESIS_JSON_FILE="${genesis}" || GENESIS_JSON_FILE=${DATA_DIR}/../genesis.json
 
             go run github.com/ethereum/go-ethereum/cmd/geth \
-              --datadir=${DATA_DIR}/data init ${GENESIS_JSON_FILE}
+              --datadir=${DATA_DIR}/data \
+              --rororo.candidates 6 \
+              --rororo.endorsers 101 \
+                init ${GENESIS_JSON_FILE}
 
             cat ${GENESIS_JSON_FILE}
 
@@ -177,7 +210,7 @@ tasks:
 
             if [[ "${key}" != "/dev/stdout" ]] || [[ "${enode}" != "/dev/stdout" ]]; then
               [ -n "${nodedir}" ] && NODE_DIR="${nodedir}" || NODE_DIR=${DEFAULT_NODE_DIR}
-              mkdir -p NODE_DIR && cd ${NODE_DIR}
+              mkdir -p ${NODE_DIR} && cd ${NODE_DIR}
             fi
 
             # Note that [ -f /dev/stdout ] is FALSE, so we don't need to guard
@@ -193,3 +226,4 @@ tasks:
             ENODE=$(echo $KEY | go run github.com/ethereum/go-ethereum/cmd/bootnode --nodekey /dev/stdin --writeaddress)
             echo $KEY > ${key} && echo "wrote: ${key}"
             echo $ENODE > ${enode} && echo "wrote: ${enode}"
+            pwd

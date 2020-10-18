@@ -1,16 +1,3 @@
----
-eip: <to be assigned>
-title: Robust Round Robin Consensus
-author: Robin Bryce <robinbryce@gmail.com>, Mansoor Ahmed-Rengers <mansoor.ahmed@cl.cam.ac.uk>, Kari Kostianinen <kari.kostianinen@inf.ethz.ch>
-discussions-to: <URL>
-status: NOT READY FOR PEER REVIEW
-type: <Standards Track, Meta, or Informational>
-category (*only required for Standards Track): <Core, Networking, Interface, or ERC>
-created: <date created on, in ISO 8601 (yyyy-mm-dd) format>
-requires (*optional): <EIP number(s)>
-replaces (*optional): <EIP number(s)>
----
-
 # Strategy
 
 The aim is to get RoRoRo into quorum. However, following the path of the IBFT
@@ -137,6 +124,51 @@ eth_getTransactionCount
 
 # Implementation
 
+## Node p2p
+
+We leverage the mechanism provided in the quorum go-ethereum for IBFT. For each
+inbound message on a peer connection, the consensus engine is given a "first
+refusal" on the message. If the engine returns an error, just as for normal
+message handling, the connection is terminated. If the engine indicates it has
+consumed the message, normal 'eth' protcol msg handling is skiped. The
+following source references for the quorum 2.7.0 release indicate where these
+arrangements are made.
+
+IBFT allocates a single message code (0x11) by which it recognises its own
+protocol messages. All IBFT consensum and admin messages are sub encoded in the
+data.
+
+* eth/handler.go ProtocolManager handle - does the connection life cycle for a
+  single peer
+* eth/handler.go ProtocolManager handleMsg - is invoked for each in bound
+  messagage from a particular peer. And here, the consensus engine gets its
+  "first refusal".
+* istanbul/backend/handler.go HandleMsg is the IBFT "first refusal"
+  implementation and this consumes all messages that have the msg.Code
+
+The IBFT consensus implementation then posts messages it claims to an internal
+queue. And worker threads pick them up. Depending on the actual message, and
+the current state of the consensus protocol, those messages may be "gossiped"
+on to other nodes.
+
+RoRoRo will, at least initialy, use the same message processing model.  This
+means leaders and endorsers will be only losely connected. We rely on the
+gossip protocol to diseminate our confirmations.
+
+## Mining (update ticker)
+
+IBFT has an explicit hook in eth/miner/worker.go which invokes an Istanbul
+specific Start method on the consensus engine. RoRoRo adds its own hook.
+
+
+## Differences with IBFT's implementation choices
+
+### Start requires CurrentBlock callback
+
+Istanbules specific Start takes a ChainReader. And further requires a
+callback which is used to get the CurrentBlock. It's not clear why it does this
+in preference to using 'CurrentHash' followed by "GetBlock".
+
 ## Identity establishment
 
 Initialisation and subsequent enrolment of identities.  Here we describe "Attested"
@@ -169,16 +201,23 @@ implementation concern
 
 ### extraData of Block0
 
-1. Ck, Cp      : Chain creator private and public keys
-2. Mk, Mp      : Chain member private and public keys
+1. Ck, Cp, CI  : Chain creator private and public keys, and public key derived identity
+2. Mk, Mp, MI  : Chain member private and public keys, and pub key derived identity
 3. he          : 0
 4. seed0       : crypto/rand for now, mansoor looking at RandHound based seeding
 5. π0          : Sig(Ck, seed0) for now, mansoor looking at VFR stuff and seed establishment
-6. Q0          : Sig(Ck, Cp)
-7. Qi          : Sig(Ck, Mpi) for all initial members
-8. CHAIN_INIT  : RLP([Q0, Cp, Qi, Mpi, ..., he, seed0, π0])
-9. CHAIN_ID    : Keccak256(INIT_VEC)
-9. extraData   : RLP([INIT_VEC, CHAIN_ID])
+6. Q0          : Sig(Ck, CI)
+7. Qi          : Sig(Ck, MIi) for all initial members
+8. IDENT_INIT  : RLP([[Q0, Cp], [Q0, Cp], [Qi, Mpi]])
+9. CHAIN_INIT  : RLP([IDENT_INIT, he, seed0, π0])
+10.CHAIN_ID    : Keccak256(CHAIN_INIT)
+11.extraData   : RLP([CHAIN_INIT, CHAIN_ID])
+
+Note: the identities *are* keccak 256 hashes of the respective nodes public
+key, hence we don't apply keccak to them before signing.
+
+Note: for the purposes of 'age' tie breaks, for the first block, the order of
+the identities is their 'order of enrolment'
 
 ### Enrolment data
 
@@ -186,15 +225,16 @@ From 4.1 we have
 i.  hash (id || pkn || r || hb )
 ii. Enrolln=(Qn,pkn,r,hb, f)
 
-1. Dk, Dp      : Debutant (or re-enroling) private and public keys
+1. Dk, Dp, Di  : Debutant (or re-enroling) private and public keys, and public key derived identity
+           Di  : Keccak256(Dp[1:65])
 2. Ak, Ap      : Active chain member private and public keys
 3. r           : round number
 4. f           : re-enrolment flag
 5. hb          : hash of latest block
-6. U           : Keccak256(CHAIN_ID || Dp || r || hb )  created on the debutant
+6. U           : Keccak256(CHAIN_ID || Di || r || hb )  created on the debutant
 7. Usig        : Sig(Dk, U)
 7. Qn          : Sig(Ak, U)
-8. EMsg        : RLP([Qn, Dp, r, hb, f])
+8. EMsg        : RLP([[Qn, Di], r, hb, f])
 
 D -> request enrol -> A
                       A -> If ok, NETORK enrol
@@ -215,9 +255,10 @@ Needs to include
     -- 5.2 endorsment protocol
 
 In the top -> genesis traversal of the branch identities are marked active or
-not based on finding {Confirm} messages which refer to them.
+not based on finding {Confirm} messages which are *sent* by them.
 
-The 'age' of an identity is the number of rounds since it last created a block.
+The 'age' of an identity is the number of rounds since it last created a block
+or since its enrolment which ever is later.
 The Intent portion identifies the creator of the block and the round the Intent
 belongs too.
 

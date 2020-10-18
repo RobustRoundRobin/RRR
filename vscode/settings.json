@@ -1,3 +1,17 @@
 {
-    "go.gopath": "${workspaceFolder}"
+    "go.gopath": "${workspaceFolder}",
+    "go.autocompleteUnimportedPackages": true,
+    "go.delveConfig": {
+
+        "dlvLoadConfig": {
+            "followPointers": true,
+            "maxVariableRecurse": 2,
+            "maxStringLen": 64,
+            "maxArrayValues": 64,
+            "maxStructFields": -1
+        },
+        "apiVersion": 2,
+        "showGlobalVariables": false
+    },
+    "python.pythonPath": "/Users/puk/.pyenv/versions/3.7.0/bin/python"
 }

@@ -5,14 +5,31 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch",
+            "name": "rawtx",
+            "type": "python",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/../rororo-devclutter/",
+            "program": "${workspaceFolder}/../rororo-devclutter/rawtx.py",
+            "args": [
+                "encode",
+                "truffle/build/contracts/SimpleStorage.json",
+                "-k", "../rororo-nodes/default-node/genesis-wallet.key"
+            ]
+        },
+        {
+            "name": "rororo genextra 1",
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${fileDirname}",
-            "env": {},
-            "args": []
+            "program": "${workspaceFolder}/src/github.com/ethereum/go-ethereum/cmd/rororo",
+            "env": { "PRIVATE_CONFIG":"ignore"},
+            "args": [
+                "genextra",
+                "--datadir", "${workspaceFolder}/../rororo-nodes/default-node/data",
+                "--key", "../key"
+            ]
         },
+
         {
             "name": "geth node",
             "type": "go",
@@ -28,6 +45,7 @@
                 "--syncmode", "full",
                 "--verbosity", "3",
                 "--networkid", "99",
+                "--mine", "--minerthreads", "1", "--miner.etherbase", "0xfddc8ec119e799a3fb2c3455cabe72a1bd59fb5a",
                 "--miner.gastarget", "3000000000",
                 "--rpc",
                 "--rpccorsdomain", "*",
@@ -36,7 +54,34 @@
                 "--ws",
                 "--wsorigins", "*",
                 "--wsaddr", "0.0.0.0",
-                "--rpcapi", "admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum",
+                "--rpcapi", "admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum"
+            ]
+        },
+        {
+            "name": "geth node1",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/src/github.com/ethereum/go-ethereum/cmd/geth",
+            "env": { "PRIVATE_CONFIG":"ignore"},
+            "args": [
+                "--datadir", "${workspaceFolder}/../rororo-nodes/node1/data",
+                "--rororo.candidates", "6",
+                "--rororo.endorsers", "101",
+                "--gcmode", "archive",
+                "--syncmode", "full",
+                "--verbosity", "3",
+                "--networkid", "99",
+                "--mine", "--minerthreads", "1", "--miner.etherbase", "0xfddc8ec119e799a3fb2c3455cabe72a1bd59fb5a",
+                "--miner.gastarget", "3000000000",
+                "--rpc",
+                "--rpccorsdomain", "*",
+                "--rpcvhosts", "*",
+                "--rpcaddr", "0.0.0.0",
+                "--ws",
+                "--wsorigins", "*",
+                "--wsaddr", "0.0.0.0",
+                "--rpcapi", "admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum"
             ]
         },
         {
@@ -49,6 +94,22 @@
             "env": { "PRIVATE_CONFIG":"ignore"},
             "args": [
                 "--datadir", "${workspaceFolder}/../rororo-nodes/default-node/data",
+                "--rororo.candidates", "6",
+                "--rororo.endorsers", "101",
+                "init",
+                "${workspaceFolder}/../rororo-nodes/default-node/genesis.json"
+            ]
+        },
+        {
+            "name": "geth rororo genesis1",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "preLaunchTask": "reset genesis1",
+            "program": "${workspaceFolder}/src/github.com/ethereum/go-ethereum/cmd/geth",
+            "env": { "PRIVATE_CONFIG":"ignore"},
+            "args": [
+                "--datadir", "${workspaceFolder}/../rororo-nodes/node1/data",
                 "--rororo.candidates", "6",
                 "--rororo.endorsers", "101",
                 "init",
