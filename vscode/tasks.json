@@ -7,7 +7,7 @@
         "label": "reset genesis",
         "type": "shell",
         "command": "rm",
-        "args": [ "-rf", "${workspaceFolder}/../rororo-nodes/default-node/data" ],
+        "args": [ "-rf", "${workspaceFolder}/../rororo-nodes/node0/data" ],
         "group":"build",
         "presentation": {
           "reveal": "always",

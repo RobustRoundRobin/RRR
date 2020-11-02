@@ -1,0 +1,144 @@
+interpreter: bash -c
+name: rororo-genesis
+
+tasks:
+  set-build-env:
+    run:
+      # OPINIONS EXPRESSED HERE
+      # see tusk.yaml for explanations
+      - set-environment:
+          QUORUM_GOPATH: "../quorum-rororo-gopath"
+          DEFAULT_NODE_DIR: "../rororo-nodes/node0"
+          BOOTNODE_DIR: "../rororo-nodes/bootnode"
+
+  bootnode:
+    run:
+      - task:
+          name: genesis
+          options:
+            genesis: "../rororo-nodes/node0/genesis.json"
+            datadir: "../rororo-nodes/bootnode/data"
+            force: true
+  node0:
+    run:
+      - task:
+          name: genesis
+          options:
+            genesis: "../rororo-nodes/node0/genesis.json"
+            datadir: "../rororo-nodes/node0/data"
+            force: true
+  node1:
+    run:
+      - task:
+          name: genesis
+          options:
+            genesis: "../rororo-nodes/node0/genesis.json"
+            datadir: "../rororo-nodes/node1/data"
+            force: true
+  node2:
+    run:
+      - task:
+          name: genesis
+          options:
+            genesis: "../rororo-nodes/node0/genesis.json"
+            datadir: "../rororo-nodes/node2/data"
+            force: true
+
+  genall:
+    run:
+      - task: bootnode
+      - task: node0
+      - task: node1
+      - task: node2
+
+  genesis:
+    usage: "do genesis (using go run and sources in quorum-rororo)"
+    options:
+      datadir:
+        usage: "geth init --datadir, defaults to DEFAULT_NODE_DIR/data"
+        default: ""
+        short: "d"
+      genesis:
+        usage: "genesis.json file, defaults to datadir/../gensis.json"
+        default: ""
+        short: "G"
+      force:
+        usage: "Force delete of existing datadir"
+        type: bool
+        short: "f"
+
+    run:
+      - task: set-build-env
+      - command:
+          exec: |
+            set -e
+            export GOPATH=$(cd $QUORUM_GOPATH; pwd)
+
+            [ -n "${datadir}" ] && DATA_DIR="${datadir}" || DATA_DIR=${DEFAULT_NODE_DIR}/data
+
+            if ${force}; then echo "force deleting: ${DATA_DIR}"; rm -rf ${DATA_DIR}; fi
+
+            [ -d ${DATA_DIR} ] && echo "datadir exists, -f to force delete" && exit 1
+
+            TASK_DIR=$(pwd)
+            mkdir -p ${DATA_DIR} && cd ${DATA_DIR}
+            DATA_DIR=$(pwd)
+            [ -n "${genesis}" ] && GENESIS_JSON_FILE="${TASK_DIR}/${genesis}" || GENESIS_JSON_FILE=${DATA_DIR}/../genesis.json
+
+            go run github.com/ethereum/go-ethereum/cmd/geth \
+              --datadir=${DATA_DIR} \
+              --rororo.candidates 6 \
+              --rororo.endorsers 101 \
+                init ${GENESIS_JSON_FILE}
+
+            cat ${GENESIS_JSON_FILE}
+            ls -lad ${DATA_DIR}
+
+  nodekey:
+    usage: "generate node key (using go run and sources in quorum-rororo)"
+    options:
+
+      nodedir:
+        usage: "parent dir for node --datadir, defaults to DEFAULT_NODE_DIR"
+        default: ""
+
+      key:
+        usage: "output file name or '/dev/stdout'"
+        default: "key"
+      enode:
+        usage: "output file name or '/dev/stdout'"
+        default: "enode"
+
+      force:
+        usage: "Force overwrite of existing key"
+        type: bool
+        short: "f"
+
+    run:
+      - task: set-build-env
+      - command:
+          exec: |
+            set -e
+            export GOPATH=$(cd $QUORUM_GOPATH; pwd)
+
+            TASK_DIR=$(pwd)
+
+            if [[ "${key}" != "/dev/stdout" ]] || [[ "${enode}" != "/dev/stdout" ]]; then
+              [ -n "${nodedir}" ] && NODE_DIR="${nodedir}" || NODE_DIR=${DEFAULT_NODE_DIR}
+              mkdir -p ${NODE_DIR} && cd ${NODE_DIR}
+            fi
+
+            # Note that [ -f /dev/stdout ] is FALSE, so we don't need to guard
+            # against deleting it
+
+            if ${force}; then
+              [ -f ${key} ] && echo "force deleting: ${key}" && rm -f ${key}
+              [ -f ${enode} ] && echo "force deleting: ${enode}" && rm -f ${enode}
+            fi
+            [[ -f "${key}" || -f "${enode}" ]] && echo "key or enode exist: ${key}, ${enode}. -f to force delete" && exit 1
+
+            KEY=$(go run github.com/ethereum/go-ethereum/cmd/bootnode --genkey /dev/stdout)
+            ENODE=$(echo $KEY | go run github.com/ethereum/go-ethereum/cmd/bootnode --nodekey /dev/stdin --writeaddress)
+            echo $KEY > ${key} && echo "wrote: ${key}"
+            echo $ENODE > ${enode} && echo "wrote: ${enode}"
+            pwd

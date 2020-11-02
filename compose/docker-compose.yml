@@ -1,0 +1,114 @@
+version: "3.8"
+
+# This compose file arranges to 'go run' the nodes using bind mounted sources.
+# To run any node with the latest code changes, just restart it - there is no
+# need to build images for each of the nodes. The debug service exists to build
+# the image that is used to host the go tool chain. It only needs to be built
+# if the base go lang version is updated or delve needs to be upgraded.
+#
+x-node-env-defaults:
+  &node-env-defaults
+  GOCACHE: /tmp/go-cache
+  NETWORKID: "53456"
+  PRIVATE_CONFIG: ignore
+  RORORO_OPTS: "--rororo.candidates 6 --rororo.endorsers 101"
+  DISCOVERY_OPTS: "--nodiscover"
+  P2P_PORT: 7200
+  RPC_OPTS: "\
+   --rpc \
+   --rpcport 8300 \
+   --rpcapi 'admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum' \
+   --rpccorsdomain '*' \
+   --rpcvhosts '*'"
+  WS_OPTS: "--ws --wsport 8400 --wsorigins '*'"
+  MINER_OPTS: "\
+   --miner.gastarget 3000000000 \
+   --mine --minerthreads 1 --miner.etherbase 0xfddc8ec119e799a3fb2c3455cabe72a1bd59fb5a"
+  LOG_OPTS: "--vmodule 'p2p/*=5' --verbosity 5"
+
+  # Different default ways to start geth
+  #
+  # For debugging
+  # RUN_GETH_CMD: "/dbg/dlv debug  --headless --listen=:2345 --log --api-version=2 github.com/ethereum/go-ethereum/cmd/geth -- "
+  # --accept-multiclient --continue
+
+  # From live source
+  RUN_GETH_CMD: go run github.com/ethereum/go-ethereum/cmd/geth
+
+  # From pre-built binary
+  # RUN_GETH_CMD: /go/bin/geth
+
+x-node-defaults:
+  &node-defaults
+  image: rororo-delve:dev
+  volumes:
+    - go-cache-volume:/tmp/go-cache
+    - go-pkg-volume:/go/pkg
+    - ${RORORO_SRC}:/go/src
+    - ${RORORO_NODE_ROOT}:/nodes
+
+  networks:
+    rororo:
+
+  ports:
+    - "7200"
+    - "8300"
+    - "8400"
+
+  entrypoint:
+    - /bin/sh
+    - -cx
+    - |
+      # while true; do sleep 1; echo sleeping; done
+      $${RUN_GETH_CMD} \
+          --networkid $${NETWORKID} \
+          $${DISCOVERY_OPTS} \
+          --port $${P2P_PORT} \
+          --nodekey key \
+          --datadir data \
+          --gcmode archive  --syncmode full \
+          $${MINER_OPTS} \
+          $${RPC_OPTS} \
+          $${LOG_OPTS}
+
+networks:
+  rororo:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+      - subnet: ${RORORO_NET_CIDR}
+
+services:
+  debug:
+    image: rororo-delve:dev
+    build:
+      context: .
+      dockerfile: Dockerfile-delve
+
+  node0:
+    << : *node-defaults
+    ports:
+      - "2345:2345"
+      - "7200"
+      - "8300"
+      - "8400"
+
+    environment:
+      << : *node-env-defaults
+      RUN_GETH_CMD: "/dbg/dlv debug  --headless --listen=:2345 --log --api-version=2 github.com/ethereum/go-ethereum/cmd/geth -- "
+    working_dir: /nodes/node0
+
+  node1:
+    << : *node-defaults
+    environment: *node-env-defaults
+    working_dir: /nodes/node1
+
+  node2:
+    << : *node-defaults
+    environment: *node-env-defaults
+    working_dir: /nodes/node2
+
+volumes:
+  go-pkg-volume:
+  go-cache-volume:

@@ -124,6 +124,25 @@ eth_getTransactionCount
 
 # Implementation
 
+## Consensus Rounds
+
+From 3.3 Starting Point: Deterministic Slection
+
+> Such a system is able to produce a new block on each round with high
+> probability and proceed even from the rare scenarios where all selected
+> candidates are unavailable to communicate, 
+
+We run a ticker on all nodes which ticks according to the configured round
+time. Endorsed leader candiates will only broadcast their block at the end of
+their configured round time. When a node sees a new confirmed block it resets
+its ticker. In this way all participants should align on the same time window
+for a round. Yet if there is outage of any kind, each node will independently
+seek to initiate a new round.
+
+For now the round timeout is configured on the command line. Later we can
+seek to put this in the genesis block and provide a mechanism for changing
+it post chain creation
+
 ## Node p2p
 
 We leverage the mechanism provided in the quorum go-ethereum for IBFT. For each
@@ -155,17 +174,97 @@ RoRoRo will, at least initialy, use the same message processing model.  This
 means leaders and endorsers will be only losely connected. We rely on the
 gossip protocol to diseminate our confirmations.
 
+## static nodes
+
+Initial nodes need to be included in the genesis block extraData. We provide a
+utility subcommand for geth which creates the appropriate extraData for the
+genesis.json config file. After genesis, a new node is introduced by making a
+request to an existing node and then waiting for that request to be confirmed
+by the consensus engine.
+
+If boot nodes are being used instead, the initial boot nodes will need to be
+similarly in the genesis block. The easiest way to do that is to list them in a
+static-nodes.json and generate the extraData for genesis as above. The
+--bootnodes options at startup can then be used as normal. In this scenario the
+static-nodes.json is just a way to configure the genesis extraData and can be
+discared after that is done.
+
+On startup geths p2p engine populates its view of 'localnodes' to include those
+declared in static
+
 ## Mining (update ticker)
 
 IBFT has an explicit hook in eth/miner/worker.go which invokes an Istanbul
 specific Start method on the consensus engine. RoRoRo adds its own hook.
 
+### Mining vanity (extraData)
 
-## Differences with IBFT's implementation choices
+The default extra data included in each block is set by the command line config
+option
 
-### Start requires CurrentBlock callback
+    --miner.extradata
 
-Istanbules specific Start takes a ChainReader. And further requires a
+Which eventually reaches
+
+    go-ethereum/worker/worker.go setExtra
+
+We will be adding to that data to carry the block material for RoRoRo
+
+## Geth IBFT 'new chain' / warmup
+
+For orientation with the IBFT implementation it helps to follow what happens
+when starting up on a new chain.
+
+In summary, startup and catch up, verifying any blocks as we find them once
+at 'head', start mining
+
+1. VerifyHeader for the genesis block (block 0)
+
+    Called via geth/main/startNode
+
+        go-ethereum/node/node.go .Start
+        go-ethereum/core.NewBlockChain
+        consensus -> VerifyHeader 
+
+2. Prepare for the first block (block 1)
+
+    Called via miner
+        miner/worker.go newWorker
+        go mainLoop()
+        miner/miner.go mainLoop -> commitNewWork
+
+    This block arrives with the --miner.extradata set on the geth command line.
+    We can update the block.extraData inline at this point
+
+3. FinalizeAndAssemble post-transaction state mods (block rewards & other
+   consensus rules)
+
+    Called via miner
+        miner/worker.go newWorker
+        go mainLoop()
+
+        miner/miner.go mainLoop -> commitNewWork
+
+    Last chance ? to update block.extraData
+
+4. engine.Start
+
+    This is the indication we are ready to start mining (running consensus),
+    there is a corresponding Stop. This is the point at which IBFT starts its
+    first consensus round
+
+    The consensu engine Start hook is called Called via miner Start
+
+        miner/miner.go New -> go miner.update()
+
+        miner/miner.go Miner.Start
+        consensus engine Start
+
+
+    The CurrentHeader at this point is the genesis block
+
+
+The Istanbul specific Start method takes a ChainReader. And further requires a
 callback which is used to get the CurrentBlock. It's not clear why it does this
 in preference to using 'CurrentHash' followed by "GetBlock".
 
@@ -176,8 +275,10 @@ identities, but "attested" by the geth node private keys directly.
 
 From 4.1 (in the paper) we have
 
-i.  Block0=(Q1,pk1,Q2,pk2,...,he,seed0,π0,id)
-ii. Enrolln=(Qn,pkn,r,hb)
+1.
+        Block0=(Q1,pk1,Q2,pk2,...,he,seed0,π0,id)
+2.
+        Enrolln=(Qn,pkn,r,hb)
 
 The Q's are the attestations
 
@@ -236,12 +337,16 @@ ii. Enrolln=(Qn,pkn,r,hb, f)
 7. Qn          : Sig(Ak, U)
 8. EMsg        : RLP([[Qn, Di], r, hb, f])
 
-D -> request enrol -> A
-                      A -> If ok, NETORK enrol
 
-D -> request enrol -> A
+Debutant request enrolment:
+
+    D -> request enrol -> A
+                          A -> If ok, NETORK enrol
+
 Debutant sends RLP([U, Usig]) to A (A already has Dp from connection handshake)
-                      A -> verifies, then broadcasts Emsg -> NETWORK
+
+    D -> request enrol -> A
+                          A -> verifies, then broadcasts Emsg -> NETWORK
 
 LEADER -> includes EMsg on block
 D is now established

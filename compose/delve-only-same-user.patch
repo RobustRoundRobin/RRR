@@ -1,0 +1,17 @@
+Patch delve to default --only-same-user to false [1].
+Required as connections proxied via `kubectl port-forward` come from
+the outside of the pod, and so connecting to the dlv port is refused.
+
+[1] https://github.com/go-delve/delve/pull/1764
+
+--- cmd/dlv/cmds/commands.go
++++ cmd/dlv/cmds/commands.go
+@@ -114,7 +114,7 @@ func New(docCall bool) *cobra.Command {
+ 	rootCommand.PersistentFlags().StringVar(&buildFlags, "build-flags", buildFlagsDefault, "Build flags, to be passed to the compiler.")
+ 	rootCommand.PersistentFlags().StringVar(&workingDir, "wd", ".", "Working directory for running the program.")
+ 	rootCommand.PersistentFlags().BoolVarP(&checkGoVersion, "check-go-version", "", true, "Checks that the version of Go in use is compatible with Delve.")
+-	rootCommand.PersistentFlags().BoolVarP(&checkLocalConnUser, "only-same-user", "", true, "Only connections from the same user that started this instance of Delve are allowed to connect.")
++	rootCommand.PersistentFlags().BoolVarP(&checkLocalConnUser, "only-same-user", "", false, "Only connections from the same user that started this instance of Delve are allowed to connect.")
+ 	rootCommand.PersistentFlags().StringVar(&backend, "backend", "default", `Backend selection (see 'dlv help backend').`)
+
+ 	// 'attach' subcommand.

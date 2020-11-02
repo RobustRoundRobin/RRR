@@ -13,8 +13,18 @@
             "args": [
                 "encode",
                 "truffle/build/contracts/SimpleStorage.json",
-                "-k", "../rororo-nodes/default-node/genesis-wallet.key"
+                "-k", "../rororo-nodes/node0/genesis-wallet.key"
             ]
+        },
+        {
+            "name": "node0 docker remote",
+            "type": "go",
+            "request": "attach",
+            "mode": "remote",
+            "port": "2345",
+            "host": "127.0.0.1",
+            "remotePath": "/go/src",
+            "cwd": "${workspaceFolder}/src"
         },
         {
             "name": "rororo genextra 1",
@@ -25,7 +35,8 @@
             "env": { "PRIVATE_CONFIG":"ignore"},
             "args": [
                 "genextra",
-                "--datadir", "${workspaceFolder}/../rororo-nodes/default-node/data",
+                "../static-nodes.json",
+                "--datadir", "${workspaceFolder}/../rororo-nodes/node0/data",
                 "--key", "../key"
             ]
         },
@@ -38,50 +49,23 @@
             "program": "${workspaceFolder}/src/github.com/ethereum/go-ethereum/cmd/geth",
             "env": { "PRIVATE_CONFIG":"ignore"},
             "args": [
-                "--datadir", "${workspaceFolder}/../rororo-nodes/default-node/data",
-                "--rororo.candidates", "6",
-                "--rororo.endorsers", "101",
-                "--gcmode", "archive",
-                "--syncmode", "full",
-                "--verbosity", "3",
-                "--networkid", "99",
-                "--mine", "--minerthreads", "1", "--miner.etherbase", "0xfddc8ec119e799a3fb2c3455cabe72a1bd59fb5a",
-                "--miner.gastarget", "3000000000",
+                "--networkid", "53456",
+                "--nodiscover", "--netrestrict", "127.0.0.1/24",
+                // "--bootnodes", "enode://85fb8ceeb849caace57ee5adac0d644f0d1f57f097c305677f98b3dc59ead2c97b3ffc4320007487238f16cd3338eeaf0092f845b8dbc284751a9bc6431d059c@127.0.0.1:7199?discport=30301",
+                "--nodekey", "${workspaceFolder}/../rororo-nodes/node0/key",
+                "--datadir", "${workspaceFolder}/../rororo-nodes/node0/data",
+                "--port", "7200",
+                "--rororo.candidates", "6", "--rororo.endorsers", "101",
+                "--gcmode", "archive", "--syncmode", "full",
+                "--mine", "--minerthreads", "1", "--miner.etherbase", "0xfddc8ec119e799a3fb2c3455cabe72a1bd59fb5a", "--miner.gastarget", "3000000000",
                 "--rpc",
-                "--rpccorsdomain", "*",
-                "--rpcvhosts", "*",
-                "--rpcaddr", "0.0.0.0",
+                "--rpcport", "8300",
+                "--rpccorsdomain", "*", "--rpcvhosts", "*", "--rpcaddr", "0.0.0.0",
+                "--rpcapi", "admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum",
                 "--ws",
-                "--wsorigins", "*",
-                "--wsaddr", "0.0.0.0",
-                "--rpcapi", "admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum"
-            ]
-        },
-        {
-            "name": "geth node1",
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "program": "${workspaceFolder}/src/github.com/ethereum/go-ethereum/cmd/geth",
-            "env": { "PRIVATE_CONFIG":"ignore"},
-            "args": [
-                "--datadir", "${workspaceFolder}/../rororo-nodes/node1/data",
-                "--rororo.candidates", "6",
-                "--rororo.endorsers", "101",
-                "--gcmode", "archive",
-                "--syncmode", "full",
-                "--verbosity", "3",
-                "--networkid", "99",
-                "--mine", "--minerthreads", "1", "--miner.etherbase", "0xfddc8ec119e799a3fb2c3455cabe72a1bd59fb5a",
-                "--miner.gastarget", "3000000000",
-                "--rpc",
-                "--rpccorsdomain", "*",
-                "--rpcvhosts", "*",
-                "--rpcaddr", "0.0.0.0",
-                "--ws",
-                "--wsorigins", "*",
-                "--wsaddr", "0.0.0.0",
-                "--rpcapi", "admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum"
+                "--wsport", "8400",
+                "--wsorigins", "*", "--wsaddr", "0.0.0.0",
+                "--verbosity", "5", "--vmodule", "p2p/*=5"
             ]
         },
         {
@@ -93,27 +77,11 @@
             "program": "${workspaceFolder}/src/github.com/ethereum/go-ethereum/cmd/geth",
             "env": { "PRIVATE_CONFIG":"ignore"},
             "args": [
-                "--datadir", "${workspaceFolder}/../rororo-nodes/default-node/data",
+                "--datadir", "${workspaceFolder}/../rororo-nodes/node0/data",
                 "--rororo.candidates", "6",
                 "--rororo.endorsers", "101",
                 "init",
-                "${workspaceFolder}/../rororo-nodes/default-node/genesis.json"
-            ]
-        },
-        {
-            "name": "geth rororo genesis1",
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "preLaunchTask": "reset genesis1",
-            "program": "${workspaceFolder}/src/github.com/ethereum/go-ethereum/cmd/geth",
-            "env": { "PRIVATE_CONFIG":"ignore"},
-            "args": [
-                "--datadir", "${workspaceFolder}/../rororo-nodes/node1/data",
-                "--rororo.candidates", "6",
-                "--rororo.endorsers", "101",
-                "init",
-                "${workspaceFolder}/../rororo-nodes/default-node/genesis.json"
+                "${workspaceFolder}/../rororo-nodes/node0/genesis.json"
             ]
         },
         {
@@ -124,7 +92,7 @@
             "program": "${workspaceFolder}/src/github.com/ethereum/go-ethereum/cmd/geth",
             "env": { "PRIVATE_CONFIG":"ignore"},
             "args": [
-                "--datadir", "${workspaceFolder}/rororo-nodes/default-node/data",
+                "--datadir", "${workspaceFolder}/rororo-nodes/node0/data",
                 "--rororo.candidates", "6",
                 "--rororo.endorsers", "101",
                 "--gcmode", "archive",
