@@ -10,52 +10,99 @@ tasks:
           QUORUM_GOPATH: "../quorum-rororo-gopath"
           DEFAULT_NODE_DIR: "../rororo-nodes/node0"
           BOOTNODE_DIR: "../rororo-nodes/bootnode"
+          NODES_DIR: "../rororo-nodes"
+
+  all:
+    usage: "genesis for all nodes in range [start - end]"
+    options:
+      start:
+        short: "s"
+        default: "0"
+      end:
+        short: "e"
+        default: "11"
+
+    run:
+      - command:
+          exec: |
+            set -e
+            for n in $(seq ${start} ${end}); do
+              tusk -q -f tusk-genesis.yaml genesis -n ${n} -f
+            done
 
   bootnode:
     run:
       - task:
           name: genesis
           options:
-            genesis: "../rororo-nodes/node0/genesis.json"
             datadir: "../rororo-nodes/bootnode/data"
             force: true
-  node0:
-    run:
-      - task:
-          name: genesis
-          options:
-            genesis: "../rororo-nodes/node0/genesis.json"
-            datadir: "../rororo-nodes/node0/data"
-            force: true
-  node1:
-    run:
-      - task:
-          name: genesis
-          options:
-            genesis: "../rororo-nodes/node0/genesis.json"
-            datadir: "../rororo-nodes/node1/data"
-            force: true
-  node2:
-    run:
-      - task:
-          name: genesis
-          options:
-            genesis: "../rororo-nodes/node0/genesis.json"
-            datadir: "../rororo-nodes/node2/data"
-            force: true
 
-  genall:
+  keys:
+    usage: "generate a range of keys"
+    options:
+      start:
+        short: "s"
+        default: "0"
+      end:
+        short: "e"
+        default: "11"
     run:
-      - task: bootnode
-      - task: node0
-      - task: node1
-      - task: node2
+      - command:
+          exec: |
+            set -e
+            for n in $(seq ${start} ${end}); do
+              tusk -q -f tusk-genesis.yaml nodekey -n ${n} -f
+            done
+  extra:
+    usage: "generate the extradata hex string for the genesi document"
+    options:
+      start:
+        short: "s"
+        default: "0"
+      end:
+        short: "e"
+        default: "11"
+      force:
+        usage: "Force delete of existing datadir"
+        type: bool
+        short: "f"
+
+    run:
+      - task: set-build-env
+      - command:
+          exec: |
+            set -e
+
+            if ${force}; then echo "force deleting $(pwd)/static-nodes.json"; rm -f $(pwd)/static-nodes.json; fi
+            [ -f $(pwd)/static-nodes.json ] && echo "$(pwd)/static-nodes.json exists, -f to force delete" && exit 1
+
+            # the node that runs genesis gets to enrol whatever identities it
+            # likes
+            NODE_DIR=$(pwd)/${NODES_DIR}/node0
+
+            endend=$((${end} - 1))
+            rm -rf static-nodes.json
+            echo "[" | tee -a static-nodes.json
+            for n in $(seq ${start} ${endend}); do
+              printf "\"enode://$(cat $(pwd)/${NODES_DIR}/node${n}/enode)@[::]:7200\",\n" | tee -a static-nodes.json
+            done
+            printf "\"enode://$(cat $(pwd)/${NODES_DIR}/node${end}/enode)@[::]:7200\"\n" | tee -a static-nodes.json
+            echo "]" | tee -a static-nodes.json
+
+            export GOPATH=$(cd $QUORUM_GOPATH; pwd)
+            go run github.com/ethereum/go-ethereum/cmd/rororo genextra --datadir ${NODE_DIR} $(pwd)/static-nodes.json
+
 
   genesis:
     usage: "do genesis (using go run and sources in quorum-rororo)"
     options:
+      node:
+        usage: "node number"
+        short: "n"
+        default: "0"
       datadir:
-        usage: "geth init --datadir, defaults to DEFAULT_NODE_DIR/data"
+        usage: "geth init --datadir, defaults to NODES_DIR/node0/data"
         default: ""
         short: "d"
       genesis:
@@ -73,34 +120,33 @@ tasks:
           exec: |
             set -e
             export GOPATH=$(cd $QUORUM_GOPATH; pwd)
+            TASK_DIR=$(pwd)
 
-            [ -n "${datadir}" ] && DATA_DIR="${datadir}" || DATA_DIR=${DEFAULT_NODE_DIR}/data
+            [ -n "${genesis}" ] && "${TASK_DIR}/${genesis}" || GENESIS_JSON="${TASK_DIR}/${NODES_DIR}/node0/genesis.json"
+            [ -n "${node}" ] && NODE_DIR="${TASK_DIR}/${NODES_DIR}/node${node}" || NODE_DIR="${TASK_DIR}/${NODES_DIR}/node0"
+            [ -n "${datadir}" ] && DATA_DIR="${TASK_DIR}/${datadir}" || DATA_DIR=${NODE_DIR}/data
 
             if ${force}; then echo "force deleting: ${DATA_DIR}"; rm -rf ${DATA_DIR}; fi
 
             [ -d ${DATA_DIR} ] && echo "datadir exists, -f to force delete" && exit 1
 
-            TASK_DIR=$(pwd)
             mkdir -p ${DATA_DIR} && cd ${DATA_DIR}
             DATA_DIR=$(pwd)
-            [ -n "${genesis}" ] && GENESIS_JSON_FILE="${TASK_DIR}/${genesis}" || GENESIS_JSON_FILE=${DATA_DIR}/../genesis.json
+            # --rororo.endorsers 101
 
             go run github.com/ethereum/go-ethereum/cmd/geth \
-              --datadir=${DATA_DIR} \
-              --rororo.candidates 6 \
-              --rororo.endorsers 101 \
-                init ${GENESIS_JSON_FILE}
+              --datadir=${DATA_DIR} init ${GENESIS_JSON}
 
-            cat ${GENESIS_JSON_FILE}
-            ls -lad ${DATA_DIR}
+            echo "${DATA_DIR} from ${GENESIS_JSON}"
 
   nodekey:
     usage: "generate node key (using go run and sources in quorum-rororo)"
     options:
 
-      nodedir:
-        usage: "parent dir for node --datadir, defaults to DEFAULT_NODE_DIR"
-        default: ""
+      node:
+        usage: "node number"
+        short: "n"
+        default: "0"
 
       key:
         usage: "output file name or '/dev/stdout'"
@@ -124,7 +170,7 @@ tasks:
             TASK_DIR=$(pwd)
 
             if [[ "${key}" != "/dev/stdout" ]] || [[ "${enode}" != "/dev/stdout" ]]; then
-              [ -n "${nodedir}" ] && NODE_DIR="${nodedir}" || NODE_DIR=${DEFAULT_NODE_DIR}
+              [ -n "${node}" ] && NODE_DIR="${TASK_DIR}/${NODES_DIR}/node${node}" || NODE_DIR="${TASK_DIR}/${NODES_DIR}/node0"
               mkdir -p ${NODE_DIR} && cd ${NODE_DIR}
             fi
 
