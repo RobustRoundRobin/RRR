@@ -1,0 +1,28 @@
+{
+  "alloc": {"GENESIS-WALLET":{"balance":"1000000000000000000000000000"}},
+  "coinbase":"0x0000000000000000000000000000000000000000",
+  "config": {
+    "chainId":99,
+    "homesteadBlock":0,
+    "byzantiumBlock":0,
+    "constantinopleBlock":0,
+    "petersburgBlock":0,
+    "istanbulBlock":0,
+    "rororoBlock":0,
+    "eip150Block":0,
+    "eip155Block":0,
+    "eip150Hash":"0x0000000000000000000000000000000000000000000000000000000000000000",
+    "eip158Block":0,
+    "isQuorum":true,
+    "RoRoRo": {},
+    "txnSizeLimit":128,
+    "maxCodeSizeConfig": [{"block": 0, "size":96}]
+  },
+  "difficulty":"0x0",
+  "extraData": "<RORORO EXTRADATA to enrol validators",
+  "gasLimit":"0xE0000000",
+  "mixhash":"0x00000000000000000000000000000000000000647572616c65787365646c6578",
+  "nonce":"0x0",
+  "parentHash":"0x0000000000000000000000000000000000000000000000000000000000000000",
+  "timestamp":"0x0"
+}
