@@ -124,16 +124,22 @@ def cmd_encode(args):
     else:
         data = c["bytecode"]
 
-    if not args.priv:
+    if not args.priv and not args.hex_priv:
         message, *_ = encoderaw(
             args.nonce, args.gasprice, args.gaslimit, args.to, data, args.chainid,
             verbose=args.verbose)
         print(message.hex())
         return 0
 
+    if args.priv:
+        key = args.priv.read()
+    else:
+        key = bytearray.fromhex(args.hex_priv.read())
+
+
     message, signed, _ = encoderaw(
             args.nonce, args.gasprice, args.gaslimit, args.to, data, args.chainid,
-            key=args.priv.read(), verbose=args.verbose)
+            key=key, verbose=args.verbose)
 
     js = f'eth.sendRawTransaction("0x{signed.hex()}")'
     formats = args.format.split(",")
@@ -208,6 +214,10 @@ def run(args=None):
     p.add_argument("--method-args", "-a", default="")
 
     p.add_argument("-k", "--priv", type=argparse.FileType('rb'),
+        help="""
+        Sign the raw encoded transaction with the binary encoded key in this file"""
+    )
+    p.add_argument("-x", "--hex-priv", type=argparse.FileType('r'),
         help="""
         Sign the raw encoded transaction with the hex encoded key in this file"""
     )

@@ -44,6 +44,9 @@ node keys and out of band operational measures. This makes the implementation
 only suitable for private networks. However, we do seek to make room for the
 attestation to be added in future work.
 
+Here, where we say node id we mean  Keccak256 ( PublicKey X || Y ). Where
+PublicKey is the nodes ecdsa public key.
+
 ## Configuration
 
 ### Nc, Ne - Option 1
@@ -366,6 +369,26 @@ The 'age' of an identity is the number of rounds since it last created a block
 or since its enrolment which ever is later.
 The Intent portion identifies the creator of the block and the round the Intent
 belongs too.
+
+### Intent
+
+Intent(id, pkc, r, hp, htx, sc)
+
+id     : CHAIN_ID
+ni     : pkc above (and in paper). Candidate's node id
+r      : round (on candidate node when message sent)
+hp     : previous block hash, parent of the intended new block
+htx    : merkle root of the transactions to be put in new block
+sc     : candidates signature over id || ni || r || hp || htx
+
+### Confirm
+
+Confirm (id, hi, h(pkv), sige)
+
+id     : CHAIN_ID (defined for extraData of Block0)
+hi     : Keccak256(Intent)
+ei     : h(pkv) above (and in paper). Endorser's node id.
+se     : endorsers signature over id || hi || ei
 
 
 # Security Considerations

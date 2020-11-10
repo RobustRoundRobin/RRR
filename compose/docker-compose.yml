@@ -11,10 +11,11 @@ x-node-env-defaults:
   GOCACHE: /tmp/go-cache
   NETWORKID: "53456"
   PRIVATE_CONFIG: ignore
-  RORORO_OPTS: "--rororo.candidates 6 --rororo.endorsers 101"
+  RORORO_OPTS: "--rororo.candidates 3 --rororo.endorsers 5 --rororo.endorsersquorum 2"
   DISCOVERY_OPTS: "--nodiscover"
   P2P_PORT: 7200
   RPC_OPTS: "\
+   --allow-insecure-unlock \
    --rpc \
    --rpcport 8300 \
    --rpcapi 'admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum' \
@@ -61,12 +62,14 @@ x-node-defaults:
     - |
       # while true; do sleep 1; echo sleeping; done
       $${RUN_GETH_CMD} \
+          $${RORORO_OPTS} \
           --networkid $${NETWORKID} \
           $${DISCOVERY_OPTS} \
           --port $${P2P_PORT} \
           --nodekey key \
           --datadir data \
           --gcmode archive  --syncmode full \
+          --nousb \
           $${MINER_OPTS} \
           $${RPC_OPTS} \
           $${LOG_OPTS}
@@ -88,26 +91,56 @@ services:
 
   node0:
     << : *node-defaults
-    ports:
-      - "2345:2345"
-      - "7200"
-      - "8300"
-      - "8400"
-
+    # --accept-multiclient --continue
+    working_dir: /nodes/node0
     environment:
       << : *node-env-defaults
-      RUN_GETH_CMD: "/dbg/dlv debug  --headless --listen=:2345 --log --api-version=2 github.com/ethereum/go-ethereum/cmd/geth -- "
-    working_dir: /nodes/node0
+      RUN_GETH_CMD: "/dbg/dlv debug --headless --listen=:2345 --log --api-version=2 github.com/ethereum/go-ethereum/cmd/geth -- "
+    ports:
+      - "2345:2345"
+      - "7200:7200"
+      - "8545:8300"
+      - "8400"
 
   node1:
     << : *node-defaults
-    environment: *node-env-defaults
+    ports:
+      - "2345"
+      - "7200"
+      - "8300"
+    environment:
+      << : *node-env-defaults
     working_dir: /nodes/node1
 
   node2:
     << : *node-defaults
     environment: *node-env-defaults
     working_dir: /nodes/node2
+
+  node3:
+    << : *node-defaults
+    environment: *node-env-defaults
+    working_dir: /nodes/node3
+
+  node4:
+    << : *node-defaults
+    environment: *node-env-defaults
+    working_dir: /nodes/node4
+
+  node5:
+    << : *node-defaults
+    environment: *node-env-defaults
+    working_dir: /nodes/node5
+
+  node6:
+    << : *node-defaults
+    environment: *node-env-defaults
+    working_dir: /nodes/node6
+
+  node7:
+    << : *node-defaults
+    environment: *node-env-defaults
+    working_dir: /nodes/node7
 
 volumes:
   go-pkg-volume:

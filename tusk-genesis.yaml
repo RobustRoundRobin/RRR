@@ -30,6 +30,7 @@ tasks:
               tusk -q -f tusk-genesis.yaml genesis -n ${n} -f
             done
 
+
   bootnode:
     run:
       - task:
@@ -85,13 +86,19 @@ tasks:
             rm -rf static-nodes.json
             echo "[" | tee -a static-nodes.json
             for n in $(seq ${start} ${endend}); do
-              printf "\"enode://$(cat $(pwd)/${NODES_DIR}/node${n}/enode)@[::]:7200\",\n" | tee -a static-nodes.json
+              printf "\"enode://$(cat $(pwd)/${NODES_DIR}/node${n}/enode)@node${n}:7200\",\n" | tee -a static-nodes.json
             done
-            printf "\"enode://$(cat $(pwd)/${NODES_DIR}/node${end}/enode)@[::]:7200\"\n" | tee -a static-nodes.json
+            printf "\"enode://$(cat $(pwd)/${NODES_DIR}/node${end}/enode)@node${end}:7200\"\n" | tee -a static-nodes.json
             echo "]" | tee -a static-nodes.json
 
             export GOPATH=$(cd $QUORUM_GOPATH; pwd)
+            # attempts to resolve the node's and that doesn't work out side of
+            # compose
             go run github.com/ethereum/go-ethereum/cmd/rororo genextra --datadir ${NODE_DIR} $(pwd)/static-nodes.json
+            for n in $(seq ${start} ${end}); do
+              mkdir -p $(pwd)/${NODES_DIR}/node${n}/data/geth
+              cp static-nodes.json $(pwd)/${NODES_DIR}/node${n}/data/geth/
+            done
 
 
   genesis:

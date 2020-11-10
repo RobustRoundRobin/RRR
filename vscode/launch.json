@@ -12,12 +12,14 @@
             "program": "${workspaceFolder}/../rororo-devclutter/rawtx.py",
             "args": [
                 "encode",
+                "--nonce", "23",
                 "truffle/build/contracts/SimpleStorage.json",
-                "-k", "../rororo-nodes/node0/genesis-wallet.key"
+                // "-k", "../rororo-nodes/node0/genesis-wallet.key"
+                "-x", "../avid/credentials/value-chain-dev-robin/asset-type-owner-key-raw"
             ]
         },
         {
-            "name": "node0 docker remote",
+            "name": "node docker remote",
             "type": "go",
             "request": "attach",
             "mode": "remote",
@@ -55,7 +57,8 @@
                 "--nodekey", "${workspaceFolder}/../rororo-nodes/node0/key",
                 "--datadir", "${workspaceFolder}/../rororo-nodes/node0/data",
                 "--port", "7200",
-                "--rororo.candidates", "6", "--rororo.endorsers", "101",
+                "--rororo.candidates", "3", "--rororo.endorsers", "9",
+                "--rororo.endorsersquorum", "2",
                 "--gcmode", "archive", "--syncmode", "full",
                 "--mine", "--minerthreads", "1", "--miner.etherbase", "0xfddc8ec119e799a3fb2c3455cabe72a1bd59fb5a", "--miner.gastarget", "3000000000",
                 "--rpc",
