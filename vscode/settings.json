@@ -3,6 +3,7 @@
     "go.autocompleteUnimportedPackages": true,
     "go.delveConfig": {
 
+
         "dlvLoadConfig": {
             "followPointers": true,
             "maxVariableRecurse": 2,
@@ -13,5 +14,5 @@
         "apiVersion": 2,
         "showGlobalVariables": false
     },
-    "python.pythonPath": "/Users/puk/.pyenv/versions/3.7.0/bin/python"
+    "python.pythonPath": "/Users/puk/.pyenv/versions/3.7.0/bin/python",
 }

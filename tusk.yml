@@ -80,7 +80,7 @@ tasks:
             export GOPATH=$(cd $QUORUM_GOPATH; pwd)
 
             [ -n "${nodedir}" ] && NODE_DIR="${nodedir}" || NODE_DIR=${DEFAULT_NODE_DIR}
-            mkdir -p NODE_DIR && cd ${NODE_DIR}
+            mkdir -p ${NODE_DIR} && cd ${NODE_DIR}
 
             cat <<PYEND | python
             import secrets, coincurve, sha3

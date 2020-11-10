@@ -12,7 +12,7 @@ tasks:
           BOOTNODE_DIR: "../rororo-nodes/bootnode"
           NODES_DIR: "../rororo-nodes"
 
-  all:
+  init-all:
     usage: "genesis for all nodes in range [start - end]"
     options:
       start:
@@ -74,6 +74,7 @@ tasks:
       - command:
           exec: |
             set -e
+            export GOPATH=$(cd $QUORUM_GOPATH; pwd)
 
             if ${force}; then echo "force deleting $(pwd)/static-nodes.json"; rm -f $(pwd)/static-nodes.json; fi
             [ -f $(pwd)/static-nodes.json ] && echo "$(pwd)/static-nodes.json exists, -f to force delete" && exit 1
@@ -83,7 +84,24 @@ tasks:
             NODE_DIR=$(pwd)/${NODES_DIR}/node0
 
             endend=$((${end} - 1))
-            rm -rf static-nodes.json
+
+            # go-ethereum's support for parsing enode urls (which we use for
+            # convenience) also, perplexingly, resolves the dns names at the
+            # time it parses the url. For docker compose setup, and for cluster
+            # setup, this is quite inconvenient - so we generate two 'static'
+            # node configuration files: one so that we can generate the extra
+            # data and another that we actually use. Only the host names are
+            # different and this does not affect the extraData
+            #
+            rm -rf static-nodes.json static-nodes-loopback.json
+
+            echo "[" | tee -a static-nodes-loopback.json
+            for n in $(seq ${start} ${endend}); do
+              printf "\"enode://$(cat $(pwd)/${NODES_DIR}/node${n}/enode)@127.0.0.1:7200\",\n" | tee -a static-nodes-loopback.json
+            done
+            printf "\"enode://$(cat $(pwd)/${NODES_DIR}/node${end}/enode)@127.0.0.1:7200\"\n" | tee -a static-nodes-loopback.json
+            echo "]" | tee -a static-nodes-loopback.json
+
             echo "[" | tee -a static-nodes.json
             for n in $(seq ${start} ${endend}); do
               printf "\"enode://$(cat $(pwd)/${NODES_DIR}/node${n}/enode)@node${n}:7200\",\n" | tee -a static-nodes.json
@@ -91,10 +109,9 @@ tasks:
             printf "\"enode://$(cat $(pwd)/${NODES_DIR}/node${end}/enode)@node${end}:7200\"\n" | tee -a static-nodes.json
             echo "]" | tee -a static-nodes.json
 
-            export GOPATH=$(cd $QUORUM_GOPATH; pwd)
             # attempts to resolve the node's and that doesn't work out side of
             # compose
-            go run github.com/ethereum/go-ethereum/cmd/rororo genextra --datadir ${NODE_DIR} $(pwd)/static-nodes.json
+            go run github.com/ethereum/go-ethereum/cmd/rororo genextra --datadir ${NODE_DIR} $(pwd)/static-nodes-loopback.json
             for n in $(seq ${start} ${end}); do
               mkdir -p $(pwd)/${NODES_DIR}/node${n}/data/geth
               cp static-nodes.json $(pwd)/${NODES_DIR}/node${n}/data/geth/

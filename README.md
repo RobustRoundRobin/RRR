@@ -41,8 +41,7 @@ And expects certain symlinks to be created.
 Pick any ROOT directory.
 
 1. The quorum fork must be cloned to ROOT/qorum-rororo-gopath/src/github.com/ethereum/go-ethereum
-2. There must be a symlink ROOT/quorum-rororo -> ROOT/qorum-rororo-gopath/src/github.com/ethereum/go-ethereum
-3. rororo must be cloned to ROOT/quorum-rororo-gopath/src/github.com/RobustRoundRobin/rororo
+2. ? There must be a symlink ROOT/quorum-rororo -> ROOT/qorum-rororo-gopath/src/github.com/ethereum/go-ethereum
 4. There must be a symlink ROOT/rororo -> ROOT/qorum-rororo-gopath/src/github.com/RobustRoundRobin/rororo
 5. devclutter must be cloned directly under ROOT. Call it ROOT/rororo-devclutter if you want the vscode support
 
@@ -57,3 +56,73 @@ Having done all of that open ROOT/quorum-rororo-gopath as a "folder" in vscode.
 
 Uses [go-tusk](https://rliebz.github.io/tusk/) to provide a collection of runes
 considered useful for developing rororo. Try `tusk -q -f ./tusk.yml -h`
+
+# from scratch
+
+1. checkout https://github.com/RobustRoundRobin/quorum.git to
+
+    ~/jitsuin/quorum-rororo-gopath/src/github.com/ethereum/go-ethereum
+
+1. checkout https://github.com/RobustRoundRobin/devclutter.git to
+
+    ~/jitsuin/rororo-devclutter
+
+1. Generate a wallet for inclusion in the `alloc' in the genesis document
+
+    tusk -q -f ./tusk.yml wallet
+
+This creates
+
+    rororo-nodes/node0/genesis-wallet.[key,pub,addr]
+
+1. Generate the node keys and folders
+
+    tusk -q -f ./tusk-genesis.yml keys
+
+This creates
+
+    node[0-11]/enode
+    node[0-11]/key
+
+1. before continuing ensure GO111MODULE is *not* set in your environment
+
+1. Generate the node enrolments for the genesis extra data
+
+    tusk -q -f ./tusk-genesis.yaml extra
+
+1. Copy genesis.json to rororo-nodes/node0/gensis.json and copy the big hex
+   string from the end of the output of the previous command in to the
+   extraData value, replacing "<RORORO EXTRADATA to enrol validators". Be sure
+   to prefix the string with '0x'
+
+1. Copy the genesis wallet address from rororo-nodes/node0/genesis-wallet.addr
+   into the "alloc", replacing "GENSIS-WALLET"
+
+1. update the rororo-devclutter/compose/docker-compose.yml x-node-env-defaults
+   to set --miner.etherbase to the genesis wallet address
+
+1. Run genesis and initialise all the nodes (geth init)
+
+   task -q -f ./tusk-genesis.yaml init-all
+
+This prints the extraData needed to enrol all the nodes in the genesis block
+(via the extraData field in the genesis.json). It also creates a
+static-nodes.json with each of those nodes in which is appropriate for the
+compose setup. This static-nodes.json is copied in to each node's director.
+
+1. create a symlink from ~/jitsuin/quorum-rororo-gopath/.vscode to
+
+    ~/jitsuin/rororo-devclutter/vscode
+
+1. build the base docker image for hosting the nodes. Only need to do this once
+   as our compose file mounts the host source rather than building the code
+   into images.
+
+        cd rororo-devclutter/compose
+        docker-compose build debug
+
+
+1. start some nodes
+
+    cd rororo-devcluter/compose
+    docker-compose up node0 node1 node2

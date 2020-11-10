@@ -32,14 +32,15 @@
             "name": "rororo genextra 1",
             "type": "go",
             "request": "launch",
-            "mode": "auto",
+            "mode": "debug",
+            "cwd": "${workspaceFolder}",
             "program": "${workspaceFolder}/src/github.com/ethereum/go-ethereum/cmd/rororo",
             "env": { "PRIVATE_CONFIG":"ignore"},
             "args": [
                 "genextra",
-                "../static-nodes.json",
+                "${workspaceFolder}/../rororo-devclutter/static-nodes.json",
                 "--datadir", "${workspaceFolder}/../rororo-nodes/node0/data",
-                "--key", "../key"
+                "--key", "${workspaceFolder}/../rororo-nodes/node0/key"
             ]
         },
 

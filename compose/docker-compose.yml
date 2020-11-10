@@ -95,7 +95,9 @@ services:
     working_dir: /nodes/node0
     environment:
       << : *node-env-defaults
-      RUN_GETH_CMD: "/dbg/dlv debug --headless --listen=:2345 --log --api-version=2 github.com/ethereum/go-ethereum/cmd/geth -- "
+      # un comment the following to attach to the node from a vscode remote
+      # debug session
+      #  RUN_GETH_CMD: "/dbg/dlv debug --headless --listen=:2345 --log --api-version=2 github.com/ethereum/go-ethereum/cmd/geth -- "
     ports:
       - "2345:2345"
       - "7200:7200"
