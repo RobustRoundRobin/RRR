@@ -30,17 +30,19 @@ Enterprise need for large scale consortia style networks with high throughput.
 
 # Roadmap
 
-[ ] Implement the 'round' in robust round robin
-[ ] Implement the 'robust', at least dealing with idle leaders - no blocks for n round, don't include in candidates
-    when selecting leader for new round. And idealy random endorser selection with 'agreed' seed in block: at
-    least, sort endorser by public key and idx=mod something
-[ ] Sort out the name change from RoRoRo to RRR
-[ ] Internal review of implementation & crypto, EIP -> RRR-spec, general tidyup
-[ ] Open the repository
-[ ] Put in intent phase timer, so that we can properly select the "oldest seen
+* [ ] Implement the 'round' in robust round robin
+* [ ] Implement the 'robust', at least dealing with idle leaders - no blocks
+      for n round, don't include in candidates
+      when selecting leader for new round. And idealy random endorser selection
+      with 'agreed' seed in block: at least, sort endorser by public key and
+      idx=mod something
+* [ ] Sort out the name change from RoRoRo to RRR
+* [ ] Internal review of implementation & crypto, EIP -> RRR-spec, general tidyup
+* [ ] Open the repository
+* [ ] Put in intent phase timer, so that we can properly select the "oldest seen
     candidate" for confirmation, rather than "first seen"
-[ ] VRF & seeding for the candidate and endorser selection
-[ ] Membership changes - convenience here is essential for addoption over raft
+* [ ] VRF & seeding for the candidate and endorser selection
+* [ ] Membership changes - convenience here is essential for addoption over raft
 
 # Specification
 
