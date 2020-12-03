@@ -28,6 +28,20 @@ See the [paper](https://arxiv.org/pdf/1804.07391.pdf)
 
 Enterprise need for large scale consortia style networks with high throughput.
 
+# Roadmap
+
+[ ] Implement the 'round' in robust round robin
+[ ] Implement the 'robust', at least dealing with idle leaders - no blocks for n round, don't include in candidates
+    when selecting leader for new round. And idealy random endorser selection with 'agreed' seed in block: at
+    least, sort endorser by public key and idx=mod something
+[ ] Sort out the name change from RoRoRo to RRR
+[ ] Internal review of implementation & crypto, EIP -> RRR-spec, general tidyup
+[ ] Open the repository
+[ ] Put in intent phase timer, so that we can properly select the "oldest seen
+    candidate" for confirmation, rather than "first seen"
+[ ] VRF & seeding for the candidate and endorser selection
+[ ] Membership changes - convenience here is essential for addoption over raft
+
 # Specification
 
 Be consistent with the IBFT implementation choices as far as makes sense. To
@@ -141,6 +155,10 @@ their configured round time. When a node sees a new confirmed block it resets
 its ticker. In this way all participants should align on the same time window
 for a round. Yet if there is outage of any kind, each node will independently
 seek to initiate a new round.
+
+Note that in geth, when mining, the confirmation of a NewChainHead imediately
+results a new 'work' request being issued. In rororo (as in IBFT) this is where
+we hook in end of round
 
 For now the round timeout is configured on the command line. Later we can
 seek to put this in the genesis block and provide a mechanism for changing

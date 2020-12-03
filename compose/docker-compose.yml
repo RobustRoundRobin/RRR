@@ -17,6 +17,7 @@ x-node-env-defaults:
   RPC_OPTS: "\
    --allow-insecure-unlock \
    --rpc \
+   --rpcaddr 0.0.0.0 \
    --rpcport 8300 \
    --rpcapi 'admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum' \
    --rpccorsdomain '*' \
@@ -25,7 +26,8 @@ x-node-env-defaults:
   MINER_OPTS: "\
    --miner.gastarget 3000000000 \
    --mine --minerthreads 1 --miner.etherbase 0xfddc8ec119e799a3fb2c3455cabe72a1bd59fb5a"
-  LOG_OPTS: "--vmodule 'p2p/*=5' --verbosity 5"
+  # MINER_OPTS: ""
+  LOG_OPTS: "--debug --vmodule 'p2p/*=3,eth/*=7,eth/downloader/*=3,eth/fetcher/*=3,miner/*=7' --verbosity 7"
 
   # Different default ways to start geth
   #
@@ -45,11 +47,9 @@ x-node-defaults:
   volumes:
     - go-cache-volume:/tmp/go-cache
     - go-pkg-volume:/go/pkg
+    # These variables are defined in the .env file
     - ${RORORO_SRC}:/go/src
     - ${RORORO_NODE_ROOT}:/nodes
-
-  networks:
-    rororo:
 
   ports:
     - "7200"
@@ -74,20 +74,22 @@ x-node-defaults:
           $${RPC_OPTS} \
           $${LOG_OPTS}
 
-networks:
-  rororo:
-    driver: bridge
-    ipam:
-      driver: default
-      config:
-      - subnet: ${RORORO_NET_CIDR}
-
 services:
   debug:
     image: rororo-delve:dev
     build:
       context: .
       dockerfile: Dockerfile-delve
+  gethbuild:
+    build: .
+    volumes:
+      - go-cache-volume:/tmp/go-cache
+      - go-pkg-volume:/go/pkg
+      # These variables are defined in the .env file
+      - ${RORORO_SRC}:/go/src
+      - ${RORORO_NODE_ROOT}:/nodes
+
+
 
   node0:
     << : *node-defaults
@@ -97,22 +99,21 @@ services:
       << : *node-env-defaults
       # un comment the following to attach to the node from a vscode remote
       # debug session
-      #  RUN_GETH_CMD: "/dbg/dlv debug --headless --listen=:2345 --log --api-version=2 github.com/ethereum/go-ethereum/cmd/geth -- "
+      # RUN_GETH_CMD: "/dbg/dlv debug --headless --listen=:2345 --log --api-version=2 github.com/ethereum/go-ethereum/cmd/geth -- "
     ports:
-      - "2345:2345"
-      - "7200:7200"
       - "8545:8300"
-      - "8400"
+      - "7200:7200"
 
   node1:
     << : *node-defaults
-    ports:
-      - "2345"
-      - "7200"
-      - "8300"
+    working_dir: /nodes/node1
     environment:
       << : *node-env-defaults
-    working_dir: /nodes/node1
+      # RUN_GETH_CMD: "/dbg/dlv debug --headless --listen=:2345 --log --api-version=2 github.com/ethereum/go-ethereum/cmd/geth -- "
+    ports:
+      # - "2345:2345"
+      - "7200"
+      - "8300"
 
   node2:
     << : *node-defaults
@@ -124,25 +125,19 @@ services:
     environment: *node-env-defaults
     working_dir: /nodes/node3
 
-  node4:
-    << : *node-defaults
-    environment: *node-env-defaults
-    working_dir: /nodes/node4
+  # The tactic of using 'go run' so that it is fast to iterate code changes
+  # does not scale to much more than 5 nodes - the go linker typically gets OOM
+  # killed on a mac if they are all started together. And starting 5+
+  # individually is a little tiresome.
+  #node4:
+  #  << : *node-defaults
+  #  environment: *node-env-defaults
+  #  working_dir: /nodes/node4
 
-  node5:
-    << : *node-defaults
-    environment: *node-env-defaults
-    working_dir: /nodes/node5
-
-  node6:
-    << : *node-defaults
-    environment: *node-env-defaults
-    working_dir: /nodes/node6
-
-  node7:
-    << : *node-defaults
-    environment: *node-env-defaults
-    working_dir: /nodes/node7
+  #node5:
+  #  << : *node-defaults
+  #  environment: *node-env-defaults
+  #  working_dir: /nodes/node5
 
 volumes:
   go-pkg-volume:

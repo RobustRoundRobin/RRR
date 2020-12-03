@@ -30,6 +30,23 @@ tasks:
           # so on will treat all directories under this path as 'scratch'
           DEFAULT_NODE_DIR: "../rororo-nodes/node0"
 
+  rawtx:
+    usage: "generate a raw transaction (of arbitrary kind)"
+    options:
+      nonce:
+        default: "0"
+        short: "n"
+    run:
+      - command:
+          exec: |
+            set -e
+            # SimpleStorage needs support for contract constructor parameters
+            # encode truffle/build/contracts/SimpleStorage.json
+            python3 rawtx.py -v \
+              encode truffle/build/contracts/Migrations.json \
+              --nonce ${nonce} \
+              -k ../rororo-nodes/node0/genesis-wallet.key
+
   attach:
     usage: "geth attach using docker exec go run"
     options:
@@ -50,9 +67,8 @@ tasks:
       node:
         default: "1"
         short: "n"
+    args:
       exec:
-        required: true
-        short: "e"
     run:
       - task: set-build-env
       - command:
@@ -60,8 +76,36 @@ tasks:
             set -e
             docker exec -it rororo_node${node}_1 \
               go run github.com/ethereum/go-ethereum/cmd/geth \
-              attach /nodes/node${node}/data/geth.ipc --exec ${exec}
+              attach /nodes/node${node}/data/geth.ipc --exec "${exec}"
 
+  address:
+    usage: "get the wallet address from a key"
+    options:
+      key:
+        usage: "binary format key file"
+        short: "k"
+      hex_key:
+        usage: "hex format key file"
+        short: "x"
+      hex_pub:
+        usage: "hex format public key"
+
+    run:
+      - task: set-build-env
+      - command:
+          exec: |
+            set -e
+            [ -n "${nodedir}" ] && NODE_DIR="${nodedir}" || NODE_DIR=${DEFAULT_NODE_DIR}
+            mkdir -p ${NODE_DIR} && cd ${NODE_DIR}
+
+            cat <<PYEND | python
+            import secrets, coincurve, sha3
+
+            if "${key}" != "":
+                pub = coincurve.PublicKey.from_valid_secret(open("${key}", "rb").read())
+                addr = sha3.keccak_256(pub.format(compressed=False)[1:]).digest()[-20:].hex()
+                print(f"key: {addr}")
+            PYEND
   wallet:
     usage: "create a wallet (python deps: sha3, coincurve)"
     options:
@@ -77,8 +121,6 @@ tasks:
       - command:
           exec: |
             set -e
-            export GOPATH=$(cd $QUORUM_GOPATH; pwd)
-
             [ -n "${nodedir}" ] && NODE_DIR="${nodedir}" || NODE_DIR=${DEFAULT_NODE_DIR}
             mkdir -p ${NODE_DIR} && cd ${NODE_DIR}
 
@@ -86,12 +128,45 @@ tasks:
             import secrets, coincurve, sha3
 
             key = sha3.keccak_256(secrets.token_bytes(32)).digest()
+            keyhex = key.hex()
             pub = coincurve.PublicKey.from_valid_secret(key).format(compressed=False)[1:]
             addr = "0x" + sha3.keccak_256(pub).digest()[-20:].hex()
 
-            for var, mode in [("key", "b"), ("pub", "b"), ("addr", "")]:
+            for var, mode in [("keyhex", ""), ("key", "b"), ("pub", "b"), ("addr", "")]:
                 with open(f"${name}.{var}", "w" + mode) as f:
                     f.write(locals()[var])
 
             print(addr)
             PYEND
+
+  import-wallet:
+    usage: "imports the genesis account so unsigned transactions can be issued via console and rpc"
+    options:
+      password:
+        usage: "set the password"
+        short: "p"
+        default: "genesis"
+      name:
+        usage: "basename for wallet files .key, .pub and .addr"
+        default: genesis-wallet
+      nodedir:
+        usage: "parent dir for node --datadir, defaults to DEFAULT_NODE_DIR"
+        default: ""
+
+    run:
+      - task: set-build-env
+      - command:
+          exec: |
+            set -e
+            export GOPATH=$(cd $QUORUM_GOPATH; pwd)
+
+            [ -n "${nodedir}" ] && NODE_DIR="${nodedir}" || NODE_DIR=${DEFAULT_NODE_DIR}
+
+            mkdir -p ${NODE_DIR}/data/keystore
+            export PRIVATE_CONFIG=ignore
+            echo "${password}" > ${NODE_DIR}/${name}.password
+            go run github.com/ethereum/go-ethereum/cmd/geth \
+              --password ${NODE_DIR}/${name}.password \
+              --datadir=${NODE_DIR}/data \
+              --keystore=${NODE_DIR}/data/keystore \
+              account import ${NODE_DIR}/${name}.keyhex

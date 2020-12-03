@@ -66,9 +66,12 @@ def encoderaw(nonce, gasprice, gaslimit, address, data, chainid, key=None, verbo
         0, bytes.fromhex(data), chainid, b'', b''])
 
     if not key:
-        return message, None, None
+        return message, None, None, None
 
     key = coincurve.PrivateKey(key)
+
+    pub_key = key.public_key.format(compressed=False)[1:] # remove the compressed indicator byte
+    addr = keccak_256(pub_key).digest()[-20:]
     sig = key.sign_recoverable(keccak(message), hasher=None)
     r = big_endian_int(sig[0:32])
     s = big_endian_int(sig[32:64])
@@ -86,13 +89,15 @@ def encoderaw(nonce, gasprice, gaslimit, address, data, chainid, key=None, verbo
         v = chainid * 2 + 35
 
     if verbose:
-        print(f"chain-id={chainid}, v={v}, r={hex(r)}, s={hex(s)}")
+        print(f"signer-addr: {addr.hex()}, nonce={nonce}, chain-id={chainid}, v={v}, r={hex(r)}, s={hex(s)}")
 
     signed = rlp.encode([
         nonce, gasprice, gaslimit, int(address, 16) if address else b'',
         0, bytes.fromhex(data), v, r, s])
 
-    return message, signed, (v, r, s)
+    # pubver = coincurve.PublicKey.from_signature_and_message(sig, keccak_256(message).digest(), hasher=None)
+
+    return message, signed, addr, (v, r, s)
 
 
 def cmd_encode(args):
@@ -137,7 +142,7 @@ def cmd_encode(args):
         key = bytearray.fromhex(args.hex_priv.read())
 
 
-    message, signed, _ = encoderaw(
+    message, signed, *_ = encoderaw(
             args.nonce, args.gasprice, args.gaslimit, args.to, data, args.chainid,
             key=key, verbose=args.verbose)
 
@@ -186,7 +191,7 @@ def run(args=None):
         args = sys.argv[1:]
 
     top = argparse.ArgumentParser(description=__doc__)
-    top.add_argument('-v', '--verbose', default=False, action='store_true')
+    top.add_argument('-v', '--verbose', action='store_true')
 
     cmds = top.add_subparsers(title="Commands")
     p = cmds.add_parser("encode", help=cmd_encode.__doc__)
@@ -224,6 +229,7 @@ def run(args=None):
 
     args = top.parse_args(args)
     args.func(args)
+    return 0
 
 
 if __name__ == "__main__":

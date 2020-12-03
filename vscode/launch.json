@@ -11,11 +11,13 @@
             "cwd": "${workspaceFolder}/../rororo-devclutter/",
             "program": "${workspaceFolder}/../rororo-devclutter/rawtx.py",
             "args": [
+                "--verbose",
                 "encode",
-                "--nonce", "23",
-                "truffle/build/contracts/SimpleStorage.json",
-                // "-k", "../rororo-nodes/node0/genesis-wallet.key"
-                "-x", "../avid/credentials/value-chain-dev-robin/asset-type-owner-key-raw"
+                "--nonce", "4",
+                // "truffle/build/contracts/SimpleStorage.json",
+                "truffle/build/contracts/Migrate.json",
+                "-k", "../rororo-nodes/node0/genesis-wallet.key"
+                //"-x", "../avid/credentials/value-chain-dev-robin/asset-type-owner-key-raw"
             ]
         },
         {

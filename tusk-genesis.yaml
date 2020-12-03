@@ -23,21 +23,37 @@ tasks:
         default: "11"
 
     run:
+      - task: set-build-env
       - command:
           exec: |
             set -e
             for n in $(seq ${start} ${end}); do
               tusk -q -f tusk-genesis.yaml genesis -n ${n} -f
+              mkdir -p $(pwd)/${NODES_DIR}/node${n}/data/geth
+              cp static-nodes.json $(pwd)/${NODES_DIR}/node${n}/data/geth/
             done
 
+  reset-all:
+    usage: "run geth removedb on all nodes"
+    options:
+      start:
+        short: "s"
+        default: "0"
+      end:
+        short: "e"
+        default: "11"
 
-  bootnode:
     run:
-      - task:
-          name: genesis
-          options:
-            datadir: "../rororo-nodes/bootnode/data"
-            force: true
+      - task: set-build-env
+      - command:
+          exec: |
+            set -e
+            export GOPATH=$(cd $QUORUM_GOPATH; pwd)
+
+            for n in $(seq ${start} ${end}); do
+              DATA_DIR=$(pwd)/${NODES_DIR}/node${n}/data
+              go run github.com/ethereum/go-ethereum/cmd/geth removedb --datadir ${DATA_DIR}
+            done
 
   keys:
     usage: "generate a range of keys"
@@ -112,10 +128,6 @@ tasks:
             # attempts to resolve the node's and that doesn't work out side of
             # compose
             go run github.com/ethereum/go-ethereum/cmd/rororo genextra --datadir ${NODE_DIR} $(pwd)/static-nodes-loopback.json
-            for n in $(seq ${start} ${end}); do
-              mkdir -p $(pwd)/${NODES_DIR}/node${n}/data/geth
-              cp static-nodes.json $(pwd)/${NODES_DIR}/node${n}/data/geth/
-            done
 
 
   genesis:

@@ -1,5 +1,7 @@
 interpreter: bash -c
 
+# This probably is NOT THE DROID
+#
 # Unless you really want to develop on your host, with your nodes exposed over
 # UPnP (its a good test of resilience against random messages), the compose
 # support is likely easier to work with.

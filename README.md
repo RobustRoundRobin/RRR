@@ -33,17 +33,12 @@ To simplify life, the tooling in this repository makes assumptions about the
 relative locations for these repositories:
 
 * https://github.com/RobustRoundRobin/quorum.git
-* https://github.com/RobustRoundRobin/rororo.git
 * https://github.com/RobustRoundRobin/devcluter.git
-
-And expects certain symlinks to be created.
 
 Pick any ROOT directory.
 
 1. The quorum fork must be cloned to ROOT/qorum-rororo-gopath/src/github.com/ethereum/go-ethereum
-2. ? There must be a symlink ROOT/quorum-rororo -> ROOT/qorum-rororo-gopath/src/github.com/ethereum/go-ethereum
-4. There must be a symlink ROOT/rororo -> ROOT/qorum-rororo-gopath/src/github.com/RobustRoundRobin/rororo
-5. devclutter must be cloned directly under ROOT. Call it ROOT/rororo-devclutter if you want the vscode support
+2. devclutter must be cloned directly under ROOT. Call it ROOT/rororo-devclutter if you want the vscode support
 
 If Visual Studio Code suites your needs, then create a symlink to the supplied
 vscode config, (or derive your own.)
@@ -52,12 +47,22 @@ vscode config, (or derive your own.)
 
 Having done all of that open ROOT/quorum-rororo-gopath as a "folder" in vscode.
 
+Note: You MUST NOT set GO111MODULE=on in your environment, as go-ethereum is
+not go.mod compatible.
+
 ## tusk.yml
 
 Uses [go-tusk](https://rliebz.github.io/tusk/) to provide a collection of runes
 considered useful for developing rororo. Try `tusk -q -f ./tusk.yml -h`
 
-# from scratch
+* ./tusk-genesis.yaml commands for initialising nodes for use with docker
+    compose
+* ./tusk.yml a small number of generaly helpful commands - execuging js on a
+    node, generating wallets and so on
+
+# docker-compose nodes from scratch
+
+The docker compose setup enables up to 12 nodes to be run in compose
 
 1. checkout https://github.com/RobustRoundRobin/quorum.git to
 
@@ -110,9 +115,10 @@ This prints the extraData needed to enrol all the nodes in the genesis block
 static-nodes.json with each of those nodes in which is appropriate for the
 compose setup. This static-nodes.json is copied in to each node's director.
 
-1. create a symlink from ~/jitsuin/quorum-rororo-gopath/.vscode to
+1. check that static-nodes.json has been copied into each of the nodes data
+   directories by the previous step. For each of [n] nodes look for it here:
 
-    ~/jitsuin/rororo-devclutter/vscode
+   rororo-nodes/node[n]/data/geth/static-nodes.json
 
 1. build the base docker image for hosting the nodes. Only need to do this once
    as our compose file mounts the host source rather than building the code
@@ -121,8 +127,12 @@ compose setup. This static-nodes.json is copied in to each node's director.
         cd rororo-devclutter/compose
         docker-compose build debug
 
-
 1. start some nodes
 
     cd rororo-devcluter/compose
     docker-compose up node0 node1 node2
+
+1. create a symlink from ~/jitsuin/quorum-rororo-gopath/.vscode to
+
+    ~/jitsuin/rororo-devclutter/vscode
+
