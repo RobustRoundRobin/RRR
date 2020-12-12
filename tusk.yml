@@ -5,37 +5,28 @@ interpreter: bash -c
 # long term home for shared developer conveniences.
 #
 # This tusk file has some hard opinions about the *relative* location and
-# directory names for RoRoRo's quorum fork and rororo go package.
+# directory names for RRR's quorum fork and rororo go package.
+options:
+  node:
+    default: "0"
+    short: "n"
+  nodedir:
+    usage: "parent dir for node --datadir"
+    default:
+      command: echo $(cd ../rororo-nodes/node0; pwd)
+
+  gopath:
+    default:
+      command: echo $(cd ../quorum-rororo-gopath; pwd)
 
 name: rororodev
 tasks:
-  set-build-env:
-    run:
-
-      # OPINIONS EXPRESSED HERE
-      #
-      # set-environment does not support sh eval, so we can't do very much
-      # here. All the relative paths must be resolved by the task definitions
-      # which rely on them. These only affect tasks which run on the host.
-      # Those that exec into docker are dependent on the compose files
-      - set-environment:
-          # GOPATH
-          #
-          # For quorum's fork, this is where GOPATH should point. upstream
-          # go-ethereum has moved over to go.mod but quorum has not caught up
-          # with that yet.
-          QUORUM_GOPATH: "../quorum-rororo-gopath"
-
-          # tools and tests which need to do genesis and generate wallets and
-          # so on will treat all directories under this path as 'scratch'
-          DEFAULT_NODE_DIR: "../rororo-nodes/node0"
 
   rawtx:
     usage: "generate a raw transaction (of arbitrary kind)"
     options:
       nonce:
         default: "0"
-        short: "n"
     run:
       - command:
           exec: |
@@ -49,17 +40,13 @@ tasks:
 
   attach:
     usage: "geth attach using docker exec go run"
-    options:
-      node:
-        default: "1"
-        short: "n"
 
     run:
       - command:
           exec: |
             set -e
             docker exec -it rororo_node${node}_1 \
-              go run github.com/ethereum/go-ethereum/cmd/geth attach /nodes/node${node}/data/geth.ipc
+              geth attach /nodes/node${node}/data/geth.ipc
 
   gethjex:
     usage: "geth attach --exec using docker exec go run"
@@ -70,7 +57,6 @@ tasks:
     args:
       exec:
     run:
-      - task: set-build-env
       - command:
           exec: |
             set -e
@@ -91,12 +77,10 @@ tasks:
         usage: "hex format public key"
 
     run:
-      - task: set-build-env
       - command:
           exec: |
             set -e
-            [ -n "${nodedir}" ] && NODE_DIR="${nodedir}" || NODE_DIR=${DEFAULT_NODE_DIR}
-            mkdir -p ${NODE_DIR} && cd ${NODE_DIR}
+            mkdir -p ${nodedir} && cd ${nodedir}
 
             cat <<PYEND | python
             import secrets, coincurve, sha3
@@ -112,17 +96,11 @@ tasks:
       name:
         usage: "basename for wallet files .key, .pub and .addr"
         default: genesis-wallet
-      nodedir:
-        usage: "parent dir for node --datadir, defaults to DEFAULT_NODE_DIR"
-        default: ""
-
     run:
-      - task: set-build-env
       - command:
           exec: |
             set -e
-            [ -n "${nodedir}" ] && NODE_DIR="${nodedir}" || NODE_DIR=${DEFAULT_NODE_DIR}
-            mkdir -p ${NODE_DIR} && cd ${NODE_DIR}
+            mkdir -p ${nodedir} && cd ${nodedir}
 
             cat <<PYEND | python
             import secrets, coincurve, sha3
@@ -149,18 +127,12 @@ tasks:
       name:
         usage: "basename for wallet files .key, .pub and .addr"
         default: genesis-wallet
-      nodedir:
-        usage: "parent dir for node --datadir, defaults to DEFAULT_NODE_DIR"
-        default: ""
-
     run:
-      - task: set-build-env
       - command:
           exec: |
             set -e
-            export GOPATH=$(cd $QUORUM_GOPATH; pwd)
-
-            [ -n "${nodedir}" ] && NODE_DIR="${nodedir}" || NODE_DIR=${DEFAULT_NODE_DIR}
+            export GOPATH=${gopath}
+            NODE_DIR=${nodedir}
 
             mkdir -p ${NODE_DIR}/data/keystore
             export PRIVATE_CONFIG=ignore

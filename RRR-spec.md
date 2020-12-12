@@ -2,14 +2,14 @@
 
 ## Strategy
 
-The aim is to get RoRoRo into quorum. However, following the path of the IBFT
+The aim is to get RRR into quorum. However, following the path of the IBFT
 EIP seems like a good fit even though we don't strictly need this in ethereum.
 
 There are enough similarities in the protocol. At a course level it does
 similar things leader selection, block sealing, rounds, communication between
 validators. It just does them according to a different protocol. This leads us
 to expect that the mechanical implementation choices for IBFT's integration
-should at least be a good starting point for RoRoRo. Following the trail blazed
+should at least be a good starting point for RRR. Following the trail blazed
 by IBFT will make our efforts _familiar_ to upstream. And the pull request
 feedback for IBFT should prove helpful in avoiding mistakes.
 
@@ -38,7 +38,7 @@ Enterprise need for large scale consortia style networks with high throughput.
       when selecting leader for new round. And idealy random endorser selection
       with 'agreed' seed in block: at least, sort endorser by public key and
       idx=mod something
-* [ ] Sort out the name change from RoRoRo to RRR
+* [ ] Sort out the name change from RRR to RRR
 * [ ] Internal review of implementation & crypto, EIP -> RRR-spec, general tidyup
 * [ ] Open the repository
 * [ ] Put in intent phase timer, so that we can properly select the "oldest seen
@@ -161,7 +161,7 @@ for a round. Yet if there is outage of any kind, each node will independently
 seek to initiate a new round.
 
 Note that in geth, when mining, the confirmation of a NewChainHead imediately
-results a new 'work' request being issued. In rororo (as in IBFT) this is where
+results a new 'work' request being issued. In rrr (as in IBFT) this is where
 we hook in end of round
 
 For now the round timeout is configured on the command line. Later we can
@@ -195,14 +195,14 @@ queue. And worker threads pick them up. Depending on the actual message, and
 the current state of the consensus protocol, those messages may be "gossiped"
 on to other nodes.
 
-RoRoRo will, at least initialy, use the same message processing model.  This
+RRR will, at least initialy, use the same message processing model.  This
 means leaders and endorsers will be only losely connected. We rely on the
 gossip protocol to diseminate our confirmations.
 
 ### Mining (update ticker)
 
 IBFT has an explicit hook in eth/miner/worker.go which invokes an Istanbul
-specific Start method on the consensus engine. RoRoRo adds its own hook.
+specific Start method on the consensus engine. RRR adds its own hook.
 
 ### Mining vanity (extraData)
 
@@ -215,7 +215,7 @@ Which eventually reaches
 
     go-ethereum/worker/worker.go setExtra
 
-We will be adding to that data to carry the block material for RoRoRo
+We will be adding to that data to carry the block material for RRR
 ### Identity establishment
 
 Initialisation and subsequent enrolment of identities.  Here we describe "Attested"

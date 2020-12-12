@@ -8,17 +8,17 @@ version: "3.8"
 # version is updated or delve needs to be upgraded.
 #
 # An .env file which sets the following variables MUST be in place
-# - RORORO_SRC path to rrr's quorum fork top directory 'go-etherum'
-# - RORORO_NODE_ROOT path to a directory containing node[n] data directories
+# - RRR_SRC path to rrr's quorum fork top directory 'go-etherum'
+# - RRR_NODE_ROOT path to a directory containing node[n] data directories
 #   for geth
-# If all the nodes are set to use 'node-default', RORORO_SRC is not necessary.
+# If all the nodes are set to use 'node-default', RRR_SRC is not necessary.
 # If any are set to node-gorun or node-debug, it must be set.
 
 x-node-env-defaults:
   &node-env-defaults
   NETWORKID: "53456"
   PRIVATE_CONFIG: ignore
-  RORORO_OPTS: "--rororo.candidates 1 --rororo.endorsers 3 --rororo.endorsersquorum 2"
+  RRR_OPTS: "--rrr.nc 1 --rrr.ne 3 --rrr.q 2 --rrr.confirmphase 1500 --rrr.roundlength 2500"
   DISCOVERY_OPTS: "--nodiscover"
   P2P_PORT: 7200
   RPC_OPTS: "\
@@ -59,7 +59,7 @@ x-node-base:
   &node-base
   volumes:
     # Defined in the .env file
-    - ${RORORO_NODE_ROOT}:/nodes
+    - ${RRR_NODE_ROOT}:/nodes
 
   ports:
     - "7200"
@@ -75,7 +75,7 @@ x-node-base:
       # It is assumed that the service entry sets the working_dir to the
       # correct node directory for the --nodekey and --datadir options
       $${RUN_GETH_CMD} \
-          $${RORORO_OPTS} \
+          $${RRR_OPTS} \
           --networkid $${NETWORKID} \
           $${DISCOVERY_OPTS} \
           --port $${P2P_PORT} \
@@ -95,7 +95,21 @@ x-node-defaults:
   image: geth-rrr:latest
   volumes:
     # Defined in the .env file
-    - ${RORORO_NODE_ROOT}:/nodes
+    - ${RRR_NODE_ROOT}:/nodes
+
+x-node-exposed:
+  &node-exposed
+  << : *node-base
+  environment:
+    << : *node-env-defaults
+  image: geth-rrr:latest
+  volumes:
+    # Defined in the .env file
+    - ${RRR_NODE_ROOT}:/nodes
+  ports:
+    - "7200:7200"
+    - "8545:8300"
+    - "8400:8400"
 
 x-node-debug:
   &node-debug
@@ -107,12 +121,12 @@ x-node-debug:
     - go-cache-volume:/tmp/go-cache
     - go-pkg-volume:/go/pkg
     # These variables are defined in the .env file
-    - ${RORORO_SRC}:/go/src
-    - ${RORORO_NODE_ROOT}:/nodes
+    - ${RRR_SRC}:/go/src
+    - ${RRR_NODE_ROOT}:/nodes
   ports:
     - "2345:2345"
-    - "8545:8300"
-    - "7200:7200"
+    - "8300"
+    - "7200"
 
 x-node-gorun:
   &node-gorun
@@ -124,8 +138,8 @@ x-node-gorun:
     - go-cache-volume:/tmp/go-cache
     - go-pkg-volume:/go/pkg
     # These variables are defined in the .env file
-    - ${RORORO_SRC}:/go/src
-    - ${RORORO_NODE_ROOT}:/nodes
+    - ${RRR_SRC}:/go/src
+    - ${RRR_NODE_ROOT}:/nodes
   # ports from node-base
 
 services:
@@ -143,7 +157,8 @@ services:
   # node-defaults assumes the image referenced by x-node-defaults has been
   # built.
   node0:
-    << : *node-defaults
+    << : *node-exposed
+    # << : *node-gorun
     working_dir: /nodes/node0
 
   node1:

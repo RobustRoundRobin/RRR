@@ -57,11 +57,10 @@
                 "--networkid", "53456",
                 "--nodiscover", "--netrestrict", "127.0.0.1/24",
                 // "--bootnodes", "enode://85fb8ceeb849caace57ee5adac0d644f0d1f57f097c305677f98b3dc59ead2c97b3ffc4320007487238f16cd3338eeaf0092f845b8dbc284751a9bc6431d059c@127.0.0.1:7199?discport=30301",
-                "--nodekey", "${workspaceFolder}/../rororo-nodes/node8/key",
-                "--datadir", "${workspaceFolder}/../rororo-nodes/node8/data",
+                "--nodekey", "${workspaceFolder}/../rororo-nodes/node0/key",
+                "--datadir", "${workspaceFolder}/../rororo-nodes/node0/data",
                 "--port", "7200",
-                "--rororo.candidates", "1", "--rororo.endorsers", "3",
-                "--rororo.endorsersquorum", "2",
+                "--rrr.nc", "1", "--rrr.ne", "3", "--rrr.q", "2", "--rrr.roundlength", "1500",
                 "--gcmode", "archive", "--syncmode", "full",
                 "--mine", "--minerthreads", "1", "--miner.etherbase", "0xfddc8ec119e799a3fb2c3455cabe72a1bd59fb5a", "--miner.gastarget", "3000000000",
                 "--rpc",
@@ -75,7 +74,7 @@
             ]
         },
         {
-            "name": "geth rororo genesis",
+            "name": "geth rrr genesis",
             "type": "go",
             "request": "launch",
             "mode": "auto",
@@ -84,8 +83,8 @@
             "env": { "PRIVATE_CONFIG":"ignore"},
             "args": [
                 "--datadir", "${workspaceFolder}/../rororo-nodes/node0/data",
-                "--rororo.candidates", "6",
-                "--rororo.endorsers", "101",
+                "--rrr.candidates", "6",
+                "--rrr.endorsers", "101",
                 "init",
                 "${workspaceFolder}/../rororo-nodes/node0/genesis.json"
             ]
@@ -99,8 +98,8 @@
             "env": { "PRIVATE_CONFIG":"ignore"},
             "args": [
                 "--datadir", "${workspaceFolder}/rororo-nodes/node0/data",
-                "--rororo.candidates", "6",
-                "--rororo.endorsers", "101",
+                "--rrr.candidates", "6",
+                "--rrr.endorsers", "101",
                 "--gcmode", "archive",
                 "--syncmode", "full",
                 "--verbosity", "3",

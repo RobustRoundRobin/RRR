@@ -129,7 +129,7 @@ tasks:
 
             # attempts to resolve the node's and that doesn't work out side of
             # compose
-            go run github.com/ethereum/go-ethereum/cmd/rororo genextra --datadir ${NODE_DIR} $(pwd)/static-nodes-loopback.json
+            go run github.com/ethereum/go-ethereum/cmd/rrr genextra --datadir ${NODE_DIR} $(pwd)/static-nodes-loopback.json
 
 
   genesis:
@@ -178,7 +178,6 @@ tasks:
   nodekey:
     usage: "generate node key (using go run and sources in quorum-rororo)"
     options:
-
       node:
         usage: "node number"
         short: "n"
@@ -192,7 +191,7 @@ tasks:
         default: "enode"
 
       force:
-        usage: "Force overwrite of existing key"
+        usage: "Force overwrite of existing"
         type: bool
         short: "f"
 

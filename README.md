@@ -1,6 +1,6 @@
 # devclutter
 
-Tooling in support of rororo development and the addition of RoRoRo consensus
+Tooling in support of rororo development and the addition of RRR consensus
 to quorum
 
 As the name hopefuly implies, this repository is just a home for development
