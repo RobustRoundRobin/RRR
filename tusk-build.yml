@@ -1,0 +1,26 @@
+interpreter: bash -c
+name: rrrbuild
+
+# Runes for building things
+tasks:
+  set-build-env:
+    run:
+
+      # OPINIONS EXPRESSED HERE
+      #
+      # set-environment does not support sh eval, so we can't do very much
+      # here. All the relative paths must be resolved by the task definitions
+      # which rely on them. These only affect tasks which run on the host.
+      # Those that exec into docker are dependent on the compose files
+      - set-environment:
+          # GOPATH
+          #
+          # For quorum's fork, this is where GOPATH should point. upstream
+          # go-ethereum has moved over to go.mod but quorum has not caught up
+          # with that yet.
+          QUORUM_GOPATH: "../quorum-rororo-gopath"
+
+          # tools and tests which need to do genesis and generate wallets and
+          # so on will treat all directories under this path as 'scratch'
+          DEFAULT_NODE_DIR: "../rororo-nodes/node0"
+

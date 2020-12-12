@@ -1,6 +1,5 @@
 interpreter: bash -c
-name: rororo-genesis
-
+name: rrr-gen
 tasks:
   set-build-env:
     run:
@@ -11,6 +10,9 @@ tasks:
           DEFAULT_NODE_DIR: "../rororo-nodes/node0"
           BOOTNODE_DIR: "../rororo-nodes/bootnode"
           NODES_DIR: "../rororo-nodes"
+
+          RUN_GETH: "go run github.com/ethereum/go-ethereum/cmd/geth"
+          # RUN_GETH: "docker run --rm geth-rrr:latest"
 
   init-all:
     usage: "genesis for all nodes in range [start - end]"
@@ -52,7 +54,7 @@ tasks:
 
             for n in $(seq ${start} ${end}); do
               DATA_DIR=$(pwd)/${NODES_DIR}/node${n}/data
-              go run github.com/ethereum/go-ethereum/cmd/geth removedb --datadir ${DATA_DIR}
+              ${RUN_GETH} removedb --datadir ${DATA_DIR}
             done
 
   keys:
@@ -168,10 +170,8 @@ tasks:
 
             mkdir -p ${DATA_DIR} && cd ${DATA_DIR}
             DATA_DIR=$(pwd)
-            # --rororo.endorsers 101
 
-            go run github.com/ethereum/go-ethereum/cmd/geth \
-              --datadir=${DATA_DIR} init ${GENESIS_JSON}
+            ${RUN_GETH} --datadir=${DATA_DIR} init ${GENESIS_JSON}
 
             echo "${DATA_DIR} from ${GENESIS_JSON}"
 
