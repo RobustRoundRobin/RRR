@@ -26,22 +26,22 @@ identities, this approach scales to 1000's of nodes.
 
 See the [paper](https://arxiv.org/pdf/1804.07391.pdf)
 
-# Motivation
+## Motivation
 
 Enterprise need for large scale consortia style networks with high throughput.
 
-# Roadmap
+## Roadmap
 
-* [ ] Implement the 'round' in robust round robin
+* [x] Implement the 'round' in robust round robin
 * [ ] Implement the 'robust', at least dealing with idle leaders - no blocks
       for n round, don't include in candidates
       when selecting leader for new round. And idealy random endorser selection
       with 'agreed' seed in block: at least, sort endorser by public key and
       idx=mod something
-* [ ] Sort out the name change from RRR to RRR
+* [x] Sort out the name change from RRR to RRR
 * [ ] Internal review of implementation & crypto, EIP -> RRR-spec, general tidyup
 * [ ] Open the repository
-* [ ] Put in intent phase timer, so that we can properly select the "oldest seen
+* [x] Put in intent phase timer, so that we can properly select the "oldest seen
     candidate" for confirmation, rather than "first seen"
 * [ ] VRF & seeding for the candidate and endorser selection
 * [ ] Membership changes - convenience here is essential for addoption over raft
@@ -80,11 +80,6 @@ size from a particular block number.
 Nc and Ne are geth command line parameters and all participants must agree.
 This will get us going, and likely be more convenient for early development.
 
-#### tr = 5 seconds
-
-But will eventually make this either configurable or derived in some way from
-Nc, Ne
-
 ### Close nodes
 
 The original work found the majority of block dissemination delay to be due to
@@ -98,21 +93,23 @@ security properties.
 
 Ah, maybe not at first but definitely want a path to trying this.
 
-### Initialisation
+### Initial enrolment
 
 In 4.1 the paper describes how to securely enrol the initial identities for
 participants and agree an initial seed. Our implementation makes provision for
-this in extraData but the attestation Quotes (Qi's), and the seed proof π0 are
-zeroed.
+this in extraData of the genesis block but the attestation Quotes (Qi's)
 
    Block0 = (pk1, Q1, pk2, Q2,..., he, seed0, π0, id)
 
 The pk's are the node public keys for the initial members
 
+The paper specifies that a Verifiable Randome Function and associated Proof
+be used. In the initial implementation the block minter generates the seed from
+a source suitable for cryptographic operations. The seed proof is set to 0. This
+is sufficient for closed private networks. But is not viable for open or semi open
+networks.
+
 1. ? Can VerifyBranch work at all without a seed proof
-2. ? What happens if there are < Ne available endorsers. Especially during
-   network establishment where, operationaly, it makes sense to have a small
-   population in the genesis block and have the rest join in an early 'rush'
 
 ### Enrolment
 
@@ -132,6 +129,106 @@ An out of band mechanism is used to supply acceptable pkn's to current members
 ### Re-enrolment
 
 Automatically performed by the leader for now.
+### Consensus Rounds
+
+From 3.3 Starting Point: Deterministic Slection
+
+> Such a system is able to produce a new block on each round with high
+> probability and proceed even from the rare scenarios where all selected
+> candidates are unavailable to communicate, 
+
+We run a ticker on all nodes which ticks according to the configured intent
+and confirm phase times. Endorsed leader candiates will only broadcast their
+block at the end of their configured round time (intent + confirm). When a
+node sees a new confirmed block it resets its ticker. In this way all
+participants should align on the same time window for a round. Yet if there
+is outage of any kind, each node will independently seek to initiate a new
+round.
+
+For now the round timeout is configured on the command line. Later we can
+seek to put this in the genesis block and provide a mechanism for changing
+it post chain creation
+
+To achieve liveness we require a means for identities to 'skip' a round in
+the event that no candidate produces a block within the alloted time
+(intent+confirm phase). When this occurs the successful proposer can not, by
+definition, be one of the oldest Nc identities for that particular round.
+
+To allow for this we define a round as being however long it takes to produce
+a block - round number == block number - and allow each node to independently
+declare the round attempt it considers the network to be on when broadcasting
+its intent. If the endorsers agree it is a leader candidate for the round +
+the attempt adjustment, and if it is the *oldest* identity those endorsers
+see, then they will endorse the intent. Individual honest nodes will reset
+their attempt counts and intent/confirm timers on receipt of a new block.
+
+Note that a malicious node can not produce a block simply by faking an
+attempt number and contacting any endorser it choses. A node must include its
+failedAttempt counter in the block it creates. The network will not accept
+blocks where the endorsments included were not endorsers for that round +
+failedAttempt.
+
+The validity of a block proposer as a candiate in any round is dependent on
+two things:
+
+1. The age order of identities selected as active for Ta worth of blocks.
+2. The number of attempts made by the by the *successful proposer*, to
+   produce a block.
+   
+The current round is defined as the block number. Age is, as before, the
+block the identity last minted or was enroled on.
+
+1. Does not change unless a new block is accepted by the network.
+2. Is determined by the *oldest* identity to be endorsed by a quorum of
+   active identities.
+
+In a healthy network, nodes will tend to be "losely synchronised" - both on
+phase and on a failecount of 0.
+
+In situations where a network is starting up from scratch or in small
+networks that are temporaily disrupted, the phase's and attempt counters on
+the nodes may be different by aribtrary amounts. In such situations we want
+liveness. And we want to avoid the rules for marking identities idle from
+making so many identities idle that we can't advance the chain to re-enrol
+them.
+
+Each endorser, as before, will endorse the intent from the oldest identity it
+sees within its *own* intent phase. The endorser allows the proposer to
+declare itself a legitemate candidate due to failed attempts. It specifically
+does not attempt to work out if it itself is an endorser for the attempt
+indicated by the proposer. This would require it to play forward or back the
+endorser selections to get the selection implied by its peer and it gains us
+nothing as the peer can say what it likes for failcount.
+
+Attempt camping, where a nodes simply declares itself a candidate in each
+round by setting its intent failedcount appropriately, can only be successful
+where all older honest nodes are not able to publish intents. (And we could
+probably penalise this behaviour)
+
+No attempt to co-ordinate the phase with other nodes is made.
+
+All participants run the cycle of intent -> confirm phases described in the
+paper. They do so independently. Each full cycle counts as an attempt. When a
+node completes a cycle without seeing a new (verifiable) chain head it starts
+a new attempt. The endorsers are resampled for every failed attempt. After Nc
+failed attempts the node advances passed the current Nc oldest identities.
+(Advancing by one favours the youngest of the oldest)
+
+Leader candidates who are 'oldest' for Nc *rounds*, as specified by the
+paper, *are* made idle - but this only occurs when blocks arrive. We do not
+make identities idle at the end of attempts
+
+On any given node, when there are Nc failed attempt cycles we advance the
+candidate selection by Nc - but do NOT make them idle. (Nc is chosen to align
+with the idles rule for rounds). So for a particular node the range of leader
+candidates, is `[ floor(a/Nc).Nc - ceil(a/NC).Nc )`
+
+    [N0, N1, ... Nc, Nc+1, ..., 2.Nc, ....]
+
+
+The sampling of endorsers on each node is made *around* that window. The
+sampling is updated for every attempt.
+
 
 ### IBFT (and other) issues we want to be careful of
 
@@ -145,28 +242,21 @@ eth_getTransactionCount
 
 ## Implementation
 
-### Consensus Rounds
 
-From 3.3 Starting Point: Deterministic Slection
+#### Strategy 1
 
-> Such a system is able to produce a new block on each round with high
-> probability and proceed even from the rare scenarios where all selected
-> candidates are unavailable to communicate, 
+Wait for Nc + q - 1 (+ fudge) peers to be conntected before running any
+attempts and hope that they all see each other within a single round.
 
-We run a ticker on all nodes which ticks according to the configured round
-time. Endorsed leader candiates will only broadcast their block at the end of
-their configured round time. When a node sees a new confirmed block it resets
-its ticker. In this way all participants should align on the same time window
-for a round. Yet if there is outage of any kind, each node will independently
-seek to initiate a new round.
+#### Strategy 2
 
-Note that in geth, when mining, the confirmation of a NewChainHead imediately
-results a new 'work' request being issued. In rrr (as in IBFT) this is where
-we hook in end of round
+As before wait for Nc + q - 1 peers. And also,
 
-For now the round timeout is configured on the command line. Later we can
-seek to put this in the genesis block and provide a mechanism for changing
-it post chain creation
+Given a shared block to start from (likely and easy), we can start with a
+shared identity order - as that is not dependent on the random sampling.
+
+We have Na - Nidle > Nc + q attempts before it will become impossible to
+(legitemately) send out sufficient intents to obtain endorsment
 
 ### Node p2p
 
@@ -250,17 +340,17 @@ implementation concern
 
 #### extraData of Block0
 
-1. Ck, Cp, CI  : Chain creator private and public keys, and public key derived identity
-2. Mk, Mp, MI  : Chain member private and public keys, and pub key derived identity
-3. he          : 0
-4. seed0       : crypto/rand for now, mansoor looking at RandHound based seeding
-5. π0          : Sig(Ck, seed0) for now, mansoor looking at VFR stuff and seed establishment
-6. Q0          : Sig(Ck, CI)
-7. Qi          : Sig(Ck, MIi) for all initial members
-8. IDENT_INIT  : RLP([[Q0, Cp], [Q0, Cp], [Qi, Mpi]])
-9. CHAIN_INIT  : RLP([IDENT_INIT, he, seed0, π0])
-10.CHAIN_ID    : Keccak256(CHAIN_INIT)
-11.extraData   : RLP([CHAIN_INIT, CHAIN_ID])
+    1. Ck, Cp, CI  : Chain creator private and public keys, and public key derived identity
+    2. Mk, Mp, MI  : Chain member private and public keys, and pub key derived identity
+    3. he          : 0
+    4. seed0       : crypto/rand for now, mansoor looking at RandHound based seeding
+    5. π0          : Sig(Ck, seed0) for now, mansoor looking at VFR stuff and seed establishment
+    6. Q0          : Sig(Ck, CI)
+    7. Qi          : Sig(Ck, MIi) for all initial members
+    8. IDENT_INIT  : RLP([[Q0, Cp], [Q0, Cp], [Qi, Mpi]])
+    9. CHAIN_INIT  : RLP([IDENT_INIT, he, seed0, π0])
+    10.CHAIN_ID    : Keccak256(CHAIN_INIT)
+    11.extraData   : RLP([CHAIN_INIT, CHAIN_ID])
 
 Note: the identities *are* keccak 256 hashes of the respective nodes public
 key, hence we don't apply keccak to them before signing.
@@ -271,19 +361,23 @@ the identities is their 'order of enrolment'
 #### Enrolment data
 
 From 4.1 we have
-i.  hash (id || pkn || r || hb )
-ii. Enrolln=(Qn,pkn,r,hb, f)
 
-1. Dk, Dp, Di  : Debutant (or re-enroling) private and public keys, and public key derived identity
-           Di  : Keccak256(Dp[1:65])
-2. Ak, Ap      : Active chain member private and public keys
-3. r           : round number
-4. f           : re-enrolment flag
-5. hb          : hash of latest block
-6. U           : Keccak256(CHAIN_ID || Di || r || hb )  created on the debutant
-7. Usig        : Sig(Dk, U)
-7. Qn          : Sig(Ak, U)
-8. EMsg        : RLP([[Qn, Di], r, hb, f])
+    i.  hash (id || pkn || r || hb )
+    ii. Enrolln=(Qn,pkn,r,hb, f)
+
+
+And
+
+    1. Dk, Dp, Di  : Debutant (or re-enroling) private and public keys, and public key derived identity
+               Di  : Keccak256(Dp[1:65])
+    2. Ak, Ap      : Active chain member private and public keys
+    3. r           : round number
+    4. f           : re-enrolment flag
+    5. hb          : hash of latest block
+    6. U           : Keccak256(CHAIN_ID || Di || r || hb )  created on the debutant
+    7. Usig        : Sig(Dk, U)
+    7. Qn          : Sig(Ak, U)
+    8. EMsg        : RLP([[Qn, Di], r, hb, f])
 
 
 Debutant request enrolment:
@@ -319,32 +413,33 @@ belongs too.
 
 Intent(id, pkc, r, hp, htx, sc)
 
-id     : CHAIN_ID
-ni     : pkc above (and in paper). Candidate's node id
-r      : round (on candidate node when message sent)
-hp     : previous block hash, parent of the intended new block
-htx    : merkle root of the transactions to be put in new block
-sc     : candidates signature over id || ni || r || hp || htx
+    id     : CHAIN_ID
+    ni     : pkc above (and in paper). Candidate's node id
+    r      : round (on candidate node when message sent)
+    f      : failed attempts count - as counted by the proposer, 0 <= f
+    hp     : previous block hash, parent of the intended new block
+    htx    : merkle root of the transactions to be put in new block
+    sc     : candidates signature over id || ni || r || hp || htx
 
 #### Confirm
 
 Confirm (id, hi, h(pkv), sige)
 
-id     : CHAIN_ID (defined for extraData of Block0)
-hi     : Keccak256(Intent)
-ei     : h(pkv) above (and in paper). Endorser's node id.
-se     : endorsers signature over id || hi || ei
+    id     : CHAIN_ID (defined for extraData of Block0)
+    hi     : Keccak256(Intent)
+    ei     : h(pkv) above (and in paper). Endorser's node id.
+    se     : endorsers signature over id || hi || ei
 
 ### Deterimistic selection
 
 SelectActive, SelectCandidates, SelectEndorsers
 
-#### Key details
+#### Overview 
 
-* a list of identities at covering at least HEAD - Ta (or to genesis) is
-  maintained at all times with entries sorted back -> front oldest -> youngest
+a list of identities at covering at least HEAD - Ta (or to genesis) is
+maintained at all times with entries sorted back -> front oldest -> youngest
 
-##### accumulateActive
+#### accumulateActive
 
 Record activity of all blocks until we reach the genesis block or until we
 reach a block we have recorded already. We are traversing 'youngest' block to
@@ -399,7 +494,7 @@ is about to enrol. Where this assumption fails - a condition we can cheaply
 detect - we can recover by completely (or partially) re-processing HEAD - Ta
 worth of blocks.
 
-##### refreshAge
+#### refreshAge
 
 refreshAge called to indicate that nodeID has minted a block or been
 enrolled. Counter intuitively, we always insert the at the 'oldest' position.
@@ -413,9 +508,14 @@ always have identities sorted in age order.
 
 ## Security Considerations
 
-# Geth - relevant implementation nodes (this is going to get removed or appendixed)
+## Geth - relevant implementation nodes (this is going to get removed or appendixed)
 
-## static nodes
+In geth, when mining, the confirmation of a NewChainHead imediately
+results a new 'work' request being issued. In rrr (as in IBFT) this is where
+we hook in end of round/start of new round
+
+
+### static nodes
 
 Initial nodes need to be included in the genesis block extraData. We provide a
 utility subcommand for geth which creates the appropriate extraData for the
@@ -432,7 +532,7 @@ discared after that is done.
 
 On startup geths p2p engine populates its view of 'localnodes' to include those
 declared in static
-## Geth IBFT 'new chain' / warmup
+### Geth IBFT 'new chain' / warmup
 
 For orientation with the IBFT implementation it helps to follow what happens
 when starting up on a new chain.
