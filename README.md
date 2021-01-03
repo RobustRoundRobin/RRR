@@ -1,11 +1,11 @@
 # RRR Setup
 
-Tooling in support of rororo development and the addition of RRR consensus
+Tooling in support of RRR development and the addition of RRR consensus
 to quorum
 
-As the name hopefuly implies, this repository is just a home for development
-tooling that we don't want to clutter up the rororo package repository or the
-quorum fork. It's "not supported" in any way and can change without notice.
+This repository is currently pre-alpha.
+It's "not supported" in any way and can change without notice.
+If you do find a bug, do feel free to raise an issue, we will get back to you.
 
 ## Go Versions etc
 
