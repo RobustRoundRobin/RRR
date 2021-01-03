@@ -67,7 +67,7 @@ consequently remain as decentralised as possible.
 ## Roadmap
 
 * [x] Implement the 'round' in robust round robin
-* [ ] Implement the 'robust', at least dealing with idle leaders - no blocks
+* [x] Implement the 'robust', at least dealing with idle leaders - no blocks
       for n round, don't include in candidates
       when selecting leader for new round. And idealy random endorser selection
       with 'agreed' seed in block: at least, sort endorser by public key and
@@ -119,10 +119,7 @@ This will get us going, and likely be more convenient for early development.
 
 The original work found the majority of block dissemination delay to be due to
 the initial block transmission by the leader candidate. Due to high out degree
-and number of hops. Having a way to configure 'network close' nodes to serve
-has broadcast hubs for the initial block transmission is something we would
-like in from the start. The paper makes clear this does not undermine the
-security properties.
+and number of hops. In this implementation we rely on geth to do this.
 
 ### Multiple identity queues
 
@@ -161,7 +158,7 @@ An out of band mechanism is used to supply acceptable pkn's to current members
 
 ### Re-enrolment
 
-Automatically performed by the leader for now.
+[Will be ]automatically performed by the leader for now.
 ### Consensus Rounds
 
 From 3.3 Starting Point: Deterministic Slection
@@ -178,9 +175,9 @@ participants should align on the same time window for a round. Yet if there
 is outage of any kind, each node will independently seek to initiate a new
 round.
 
-For now the round timeout is configured on the command line. Later we can
-seek to put this in the genesis block and provide a mechanism for changing
-it post chain creation
+For now the round timeout is configured on the command line. Later we can put
+this in the genesis block and provide a mechanism for changing it post chain
+creation
 
 To achieve liveness we require a means for identities to 'skip' a round in
 the event that no candidate produces a block within the alloted time
@@ -188,7 +185,7 @@ the event that no candidate produces a block within the alloted time
 definition, be one of the oldest Nc identities for that particular round.
 
 To allow for this we define a round as being however long it takes to produce
-a block - round number == block number - and allow each node to independently
+a block. round number == block number, and allow each node to independently
 declare the round attempt it considers the network to be on when broadcasting
 its intent. If the endorsers agree it is a leader candidate for the round +
 the attempt adjustment, and if it is the *oldest* identity those endorsers
@@ -219,8 +216,8 @@ In a healthy network, nodes will tend to be "losely synchronised" - both on
 phase and on a failecount of 0.
 
 In situations where a network is starting up from scratch or in small
-networks that are temporaily disrupted, the phase's and attempt counters on
-the nodes may be different by aribtrary amounts. In such situations we want
+networks that are temporaily disrupted, the phase and attempt counters on the
+nodes may be different by aribtrary amounts. In such situations we want
 liveness. And we want to avoid the rules for marking identities idle from
 making so many identities idle that we can't advance the chain to re-enrol
 them.
@@ -254,42 +251,16 @@ make identities idle at the end of attempts
 On any given node, when there are Nc failed attempt cycles we advance the
 candidate selection by Nc - but do NOT make them idle. (Nc is chosen to align
 with the idles rule for rounds). So for a particular node the range of leader
-candidates, is `[ floor(a/Nc).Nc - ceil(a/NC).Nc )`
+candidates, is `[ floor(a/Nc).Nc - ceil(a/NC).Nc )` where `a = failedAttempts
+% max(na, nc+ne)` and `na` is the number of active identities, `nc` the
+leader candidates and `ne` the endorsers. Intuitively:
 
     [N0, N1, ... Nc, Nc+1, ..., 2.Nc, ....]
-
 
 The sampling of endorsers on each node is made *around* that window. The
 sampling is updated for every attempt.
 
-
-### IBFT (and other) issues we want to be careful of
-
-### eth_getTransactionCount is relied on by application level tx singers
-
-See [issue-comment](https://github.com/ethereum/EIPs/issues/650#issuecomment-360085474)
-
-It's not clear to me that this can ever be reliable with concurrent application
-signers, but certainly we should not change the behaviour of api's like
-eth_getTransactionCount
-
 ## Implementation
-
-
-#### Strategy 1
-
-Wait for Nc + q - 1 (+ fudge) peers to be conntected before running any
-attempts and hope that they all see each other within a single round.
-
-#### Strategy 2
-
-As before wait for Nc + q - 1 peers. And also,
-
-Given a shared block to start from (likely and easy), we can start with a
-shared identity order - as that is not dependent on the random sampling.
-
-We have Na - Nidle > Nc + q attempts before it will become impossible to
-(legitemately) send out sufficient intents to obtain endorsment
 
 ### Node p2p
 
@@ -314,31 +285,22 @@ data.
   implementation and this consumes all messages that have the msg.Code
 
 The IBFT consensus implementation then posts messages it claims to an internal
-queue. And worker threads pick them up. Depending on the actual message, and
-the current state of the consensus protocol, those messages may be "gossiped"
-on to other nodes.
+queue. And worker threads pick them up.
 
-RRR will, at least initialy, use the same message processing model.  This
-means leaders and endorsers will be only losely connected. We rely on the
-gossip protocol to diseminate our confirmations.
+RRR uses the same message processing model, but only has a single worker go
+routine.
 
 ### Mining (update ticker)
 
 IBFT has an explicit hook in eth/miner/worker.go which invokes an Istanbul
-specific Start method on the consensus engine. RRR adds its own hook.
+specific Start method on the consensus engine. RRR uses the same hook but
+expects an RRR specific interface for the chain to be passed (and checks it
+with a type assertion)
 
 ### Mining vanity (extraData)
 
-The default extra data included in each block is set by the command line config
-option
+RRR uses the extraData on blocks to convey its consensus parameters.
 
-    --miner.extradata
-
-Which eventually reaches
-
-    go-ethereum/worker/worker.go setExtra
-
-We will be adding to that data to carry the block material for RRR
 ### Identity establishment
 
 Initialisation and subsequent enrolment of identities.  Here we describe "Attested"
@@ -353,23 +315,18 @@ From 4.1 (in the paper) we have
 
 The Q's are the attestations
 
-For i. We create all the Qn "attestations" for Block0 using the chain creators
+For 1. We create all the Qn "attestations" for Block0 using the chain creators
 private key to sign all the initial member public keys (including the chain
 creators).
 
-For ii. The contacted member uses its private key to attest the new member.
+For 2. The contacted member signs the hash in the Q with its own private key.
 
 ### block header content
 
 Appendix A describes the "SelectActive" algorithm. This describes a key
 activity for the consensusm algorithm. Selecting active nodes is the basis of
 both leader candidate and endorser selection. It also features in branch
-verification.
-
-So structuring the data in the blocks (probably the block headers), so that
-this can be done efficiently and robustly is correspondingly a key
-implementation concern
-
+verification. Everything needed for that algorithm is encoded in the extraData
 
 #### extraData of Block0
 
@@ -444,7 +401,7 @@ belongs too.
 
 #### Intent
 
-Intent(id, pkc, r, hp, htx, sc)
+Intent(id, pkc, r, f, hp, htx, sc)
 
     id     : CHAIN_ID
     ni     : pkc above (and in paper). Candidate's node id
@@ -539,8 +496,6 @@ it saw as the fence. enrolIdentities processes enrolments for a block in
 reverse order of age. These two things combined give us an efficient way to
 always have identities sorted in age order.
 
-## Security Considerations
-
 ## Geth - relevant implementation nodes (this is going to get removed or appendixed)
 
 In geth, when mining, the confirmation of a NewChainHead imediately
@@ -617,8 +572,3 @@ at 'head', start mining
 
 
     The CurrentHeader at this point is the genesis block
-
-
-The Istanbul specific Start method takes a ChainReader. And further requires a
-callback which is used to get the CurrentBlock. It's not clear why it does this
-in preference to using 'CurrentHash' followed by "GetBlock".
