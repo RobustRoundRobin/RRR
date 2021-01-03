@@ -29,23 +29,27 @@ testing.
 
 ## Layout assumptions
 
-To simplify life, the tooling in this repository makes assumptions about the
-relative locations for these repositories:
+The tooling in this repository makes assumptions about the relative locations
+for these repositories:
 
 * https://github.com/RobustRoundRobin/quorum.git
-* https://github.com/RobustRoundRobin/devcluter.git
+* https://github.com/RobustRoundRobin/RRR.git
 
 Pick any ROOT directory.
 
-1. The quorum fork must be cloned to ROOT/qorum-rororo-gopath/src/github.com/ethereum/go-ethereum
-2. devclutter must be cloned directly under ROOT. Call it ROOT/rororo-devclutter if you want the vscode support
+1. The quorum fork must be cloned to
+
+   ROOT/gopath/src/github.com/ethereum/go-ethereum
+
+2. RRR must be cloned directly under ROOT. If you want to use the vscode files
+   as is, clone it to ROOT/rrr
 
 If Visual Studio Code suites your needs, then create a symlink to the supplied
 vscode config, (or derive your own.)
 
-   ROOT/quorum-rororo-gopath/.vscode -> ROOT/rororo-devclutter
+   ROOT/gopath/.vscode -> ROOT/rrr/vscode
 
-Having done all of that open ROOT/quorum-rororo-gopath as a "folder" in vscode.
+Having done all of that open ROOT/gopath as a "folder" in vscode.
 
 Note: You MUST NOT set GO111MODULE=on in your environment, as go-ethereum is
 not go.mod compatible.
@@ -62,77 +66,86 @@ considered useful for developing rororo. Try `tusk -q -f ./tusk.yml -h`
 
 # docker-compose nodes from scratch
 
-The docker compose setup enables up to 12 nodes to be run in compose
+The docker compose setup enables up to 12 nodes to be run in compose.
+
+Pick a common root folder and peform the following steps
+
 
 1. checkout https://github.com/RobustRoundRobin/quorum.git to
 
-    ~/jitsuin/quorum-rororo-gopath/src/github.com/ethereum/go-ethereum
+        gopath/src/github.com/ethereum/go-ethereum
 
-1. checkout https://github.com/RobustRoundRobin/devclutter.git to
+1. checkout https://github.com/RobustRoundRobin/RRR.git to
 
-    ~/jitsuin/rororo-devclutter
+        rrr
 
 1. Generate a wallet for inclusion in the `alloc' in the genesis document
 
-    tusk -q -f ./tusk.yml wallet
+        tusk -q -f ./rrr/tusk.yml wallet
 
-This creates
+    This creates
 
-    rororo-nodes/node0/genesis-wallet.[key,pub,addr]
+        nodes/node0/genesis-wallet.[key,pub,addr]
 
 1. Generate the node keys and folders
 
-    tusk -q -f ./tusk-genesis.yml keys
+        tusk -q -f rrr/tusk-genesis.yml keys
 
-This creates
+    This creates
 
-    node[0-11]/enode
-    node[0-11]/key
+        nodes/node[0-11]/enode
+        nodes/node[0-11]/key
 
 1. before continuing ensure GO111MODULE is *not* set in your environment
 
 1. Generate the node enrolments for the genesis extra data
 
-    tusk -q -f ./tusk-genesis.yaml extra
+        tusk -q -f ./tusk-genesis.yaml extra
 
-1. Copy genesis.json to rororo-nodes/node0/gensis.json and copy the big hex
+1. Copy genesis.json to nodes/node0/gensis.json and copy the big hex
    string from the end of the output of the previous command in to the
    extraData value, replacing "<RORORO EXTRADATA to enrol validators". Be sure
    to prefix the string with '0x'
 
-1. Copy the genesis wallet address from rororo-nodes/node0/genesis-wallet.addr
+1. Copy the genesis wallet address from nodes/node0/genesis-wallet.addr
    into the "alloc", replacing "GENSIS-WALLET"
 
-1. update the rororo-devclutter/compose/docker-compose.yml x-node-env-defaults
+1. update the rrr/compose/docker-compose.yml x-node-env-defaults
    to set --miner.etherbase to the genesis wallet address
 
 1. Run genesis and initialise all the nodes (geth init)
 
-   task -q -f ./tusk-genesis.yaml init-all
+       task -q -f ./tusk-genesis.yaml init-all
 
-This prints the extraData needed to enrol all the nodes in the genesis block
-(via the extraData field in the genesis.json). It also creates a
-static-nodes.json with each of those nodes in which is appropriate for the
-compose setup. This static-nodes.json is copied in to each node's director.
+   This prints the extraData needed to enrol all the nodes in the genesis block
+   (via the extraData field in the genesis.json). It also creates a
+   static-nodes.json with each of those nodes in which is appropriate for the
+   compose setup. This static-nodes.json is copied in to each node's director.
 
 1. check that static-nodes.json has been copied into each of the nodes data
    directories by the previous step. For each of [n] nodes look for it here:
 
-   rororo-nodes/node[n]/data/geth/static-nodes.json
+       nodes/node[n]/data/geth/static-nodes.json
 
-1. build the base docker image for hosting the nodes. Only need to do this once
-   as our compose file mounts the host source rather than building the code
-   into images.
+1. IF running directly from source, build the base docker image for hosting the
+   nodes. Only need to do this once as our compose file mounts the host source
+   rather than building the code into images.
 
-        cd rororo-devclutter/compose
+        cd rrr/compose
         docker-compose build debug
+        cd -
+
+1. To build the docker file for the fork
+
+        cd gopath/src/github.com/go-ethereum
+        docker build . -t geth-rrr -f Dockerfile-rrr
+        cd -
 
 1. start some nodes
 
-    cd rororo-devcluter/compose
-    docker-compose up node0 node1 node2
+        cd /compose
+        docker-compose up node0 node1 node2
+        cd -
 
-1. create a symlink from ~/jitsuin/quorum-rororo-gopath/.vscode to
-
-    ~/jitsuin/rororo-devclutter/vscode
+1. create a symlink from gopath/.vscode to rrr/vscode
 
