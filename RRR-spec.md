@@ -5,30 +5,64 @@
 The aim is to get RRR into quorum. However, following the path of the IBFT
 EIP seems like a good fit even though we don't strictly need this in ethereum.
 
-There are enough similarities in the protocol. At a course level it does
-similar things leader selection, block sealing, rounds, communication between
+There are enough similarities in the protocol. At a coarse level it does
+similar things: leader selection, block sealing, rounds, communication between
 validators. It just does them according to a different protocol. This leads us
 to expect that the mechanical implementation choices for IBFT's integration
-should at least be a good starting point for RRR. Following the trail blazed
+should at least be a good starting point for RRR. Following the path laid down
 by IBFT will make our efforts _familiar_ to upstream. And the pull request
 feedback for IBFT should prove helpful in avoiding mistakes.
 
-To that end, we can maintain this EIP as we go. Who knows, if we are successful
-with the implementation, we could very well propose it.
+To that end, we will maintain this EIP as we go. Who knows, if we are successful
+with the implementation, this document's commit history should make for an
+interesting read for future contributors.
 
-## Robust Round Robin Consensus
+## Robust Round Robin (RRR) Consensus
 
-A consensus algorithm adding fairness, liveness to simple round robin leader
-selection. In return for accepting the use of stable long term validator
+RRR: A consensus algorithm that can be used in both permissioned and permissionless
+settings. It provides fairness, liveness and high throughput using a simple
+round robin leader selection complimented with a lightweight endorsement mechanism.
+In return for accepting the use of stable long term validator
 identities, this approach scales to 1000's of nodes.
+
+See the [paper](https://arxiv.org/pdf/1804.07391.pdf) for details.
 
 ## Abtstract
 
-See the [paper](https://arxiv.org/pdf/1804.07391.pdf)
+Proof-of-Stake systems randomly choose, on each round, one of the
+participants as a consensus leader that extends the chain with the
+next block such that the selection probability is proportional to the
+owned stake. However, distributed random number generation is
+notoriously difficult. Systems that derive randomness from the previous
+blocks are completely insecure; solutions that provide secure
+random selection are inefficient due to their high communication
+complexity; and approaches that balance security and performance
+exhibit selection bias. When block creation is rewarded with new
+stake, even a minor bias can have a severe cumulative effect.
+
+Here, we implement Robust Round Robin, a new consensus
+scheme that addresses this selection problem. We create reliable
+long-term identities by bootstrapping from an existing infrastructure.
+For leader selection we use a deter-ministic approach. On each round,
+we select a set of the previously created identities as consensus leader
+candidates in round robin manner. Because simple round-robin alone is
+vulnerable to attacks and offers poor liveness, we complement this deterministic
+selection policy with a lightweight endorsement mechanism that is
+an interactive protocol between the leader candidates and a small
+subset of other system participants. Our solution has low good
+efficiency as it requires no expensive distributed randomness generation
+and it provides block creation fairness which is crucial in
+deployments that reward it with new stake.
 
 ## Motivation
 
-Enterprise need for large scale consortia style networks with high throughput.
+The main motivation for implementing RRR comes from wanting to enable entreprise
+DApps to scale to 1000's of nodes. Existing production consensus algorithms
+such as Raft only scale to a few dozen nodes. This severely restricts
+the set of applications that are amenable to DLTs and forces application
+developers to incorporate unnecessary delegation. A highly scalable consensus
+protocol like RRR promises to help DApps become massively distributed and
+consequently remain as decentralised as possible.
 
 ## Roadmap
 
@@ -38,9 +72,9 @@ Enterprise need for large scale consortia style networks with high throughput.
       when selecting leader for new round. And idealy random endorser selection
       with 'agreed' seed in block: at least, sort endorser by public key and
       idx=mod something
-* [x] Sort out the name change from RRR to RRR
+* [x] Sort out the name change from RoRoRo to RRR
 * [ ] Internal review of implementation & crypto, EIP -> RRR-spec, general tidyup
-* [ ] Open the repository
+* [x] Open the repository
 * [x] Put in intent phase timer, so that we can properly select the "oldest seen
     candidate" for confirmation, rather than "first seen"
 * [ ] VRF & seeding for the candidate and endorser selection
@@ -92,7 +126,7 @@ security properties.
 
 ### Multiple identity queues
 
-Ah, maybe not at first but definitely want a path to trying this.
+This is a medium-term goal but not currently a high priority ticket item.
 
 ### Initial enrolment
 
@@ -106,11 +140,9 @@ The pk's are the node public keys for the initial members
 
 The paper specifies that a Verifiable Randome Function and associated Proof
 be used. In the initial implementation the block minter generates the seed from
-a source suitable for cryptographic operations. The seed proof is set to 0. This
-is sufficient for closed private networks. But is not viable for open or semi open
-networks.
+a source suitable for cryptographic operations. The seed proof is currently set to 0.
+This is insecure for BFT networks but okay for CFT ones.
 
-1. ? Can VerifyBranch work at all without a seed proof
 
 ### Enrolment
 
