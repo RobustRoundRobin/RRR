@@ -45,6 +45,7 @@ Enterprise need for large scale consortia style networks with high throughput.
     candidate" for confirmation, rather than "first seen"
 * [ ] VRF & seeding for the candidate and endorser selection
 * [ ] Membership changes - convenience here is essential for addoption over raft
+* [ ] Empirical testing to decide upon sync on block arrival vs synchronised clocks
 
 ## Specification
 
