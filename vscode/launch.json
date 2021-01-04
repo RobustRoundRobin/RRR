@@ -8,15 +8,15 @@
             "name": "rawtx",
             "type": "python",
             "request": "launch",
-            "cwd": "${workspaceFolder}/../rororo-devclutter/",
-            "program": "${workspaceFolder}/../rororo-devclutter/rawtx.py",
+            "cwd": "${workspaceFolder}/../rrr/devclutter/",
+            "program": "${workspaceFolder}/../rrr/devclutter/rawtx.py",
             "args": [
                 "--verbose",
                 "encode",
                 "--nonce", "4",
                 // "truffle/build/contracts/SimpleStorage.json",
                 "truffle/build/contracts/Migrate.json",
-                "-k", "../rororo-nodes/node0/genesis-wallet.key"
+                "-k", "../rrr/nodes/node0/genesis-wallet.key"
                 //"-x", "../avid/credentials/value-chain-dev-robin/asset-type-owner-key-raw"
             ]
         },
@@ -25,7 +25,7 @@
             "type": "go",
             "request": "attach",
             "mode": "remote",
-            "port": "2345",
+            "port": 2345,
             "host": "127.0.0.1",
             "remotePath": "/go/src",
             "cwd": "${workspaceFolder}/src"
@@ -40,9 +40,9 @@
             "env": { "PRIVATE_CONFIG":"ignore"},
             "args": [
                 "genextra",
-                "${workspaceFolder}/../rororo-devclutter/static-nodes.json",
-                "--datadir", "${workspaceFolder}/../rororo-nodes/node0/data",
-                "--key", "${workspaceFolder}/../rororo-nodes/node0/key"
+                "${workspaceFolder}/../devclutter/static-nodes.json",
+                "--datadir", "${workspaceFolder}/../nodes/node0/data",
+                "--key", "${workspaceFolder}/../nodes/node0/key"
             ]
         },
 
@@ -57,10 +57,10 @@
                 "--networkid", "53456",
                 "--nodiscover", "--netrestrict", "127.0.0.1/24",
                 // "--bootnodes", "enode://85fb8ceeb849caace57ee5adac0d644f0d1f57f097c305677f98b3dc59ead2c97b3ffc4320007487238f16cd3338eeaf0092f845b8dbc284751a9bc6431d059c@127.0.0.1:7199?discport=30301",
-                "--nodekey", "${workspaceFolder}/../rororo-nodes/node0/key",
-                "--datadir", "${workspaceFolder}/../rororo-nodes/node0/data",
+                "--nodekey", "${workspaceFolder}/../nodes/node0/key",
+                "--datadir", "${workspaceFolder}/../nodes/node0/data",
                 "--port", "7200",
-                "--rrr.nc", "1", "--rrr.ne", "3", "--rrr.q", "2", "--rrr.roundlength", "1500",
+                "--rrr.nc", "2", "--rrr.ne", "3", "--rrr.q", "2", "--rrr.roundlength", "6500", "--rrr.confirmphase=3500",
                 "--gcmode", "archive", "--syncmode", "full",
                 "--mine", "--minerthreads", "1", "--miner.etherbase", "0xfddc8ec119e799a3fb2c3455cabe72a1bd59fb5a", "--miner.gastarget", "3000000000",
                 "--rpc",
@@ -82,11 +82,11 @@
             "program": "${workspaceFolder}/src/github.com/ethereum/go-ethereum/cmd/geth",
             "env": { "PRIVATE_CONFIG":"ignore"},
             "args": [
-                "--datadir", "${workspaceFolder}/../rororo-nodes/node0/data",
+                "--datadir", "${workspaceFolder}/../nodes/node0/data",
                 "--rrr.candidates", "6",
                 "--rrr.endorsers", "101",
                 "init",
-                "${workspaceFolder}/../rororo-nodes/node0/genesis.json"
+                "${workspaceFolder}/../nodes/node0/genesis.json"
             ]
         },
         {
@@ -97,7 +97,7 @@
             "program": "${workspaceFolder}/src/github.com/ethereum/go-ethereum/cmd/geth",
             "env": { "PRIVATE_CONFIG":"ignore"},
             "args": [
-                "--datadir", "${workspaceFolder}/rororo-nodes/node0/data",
+                "--datadir", "${workspaceFolder}/nodes/node0/data",
                 "--rrr.candidates", "6",
                 "--rrr.endorsers", "101",
                 "--gcmode", "archive",

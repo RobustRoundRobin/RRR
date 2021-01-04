@@ -5,7 +5,7 @@ interpreter: bash -c
 # long term home for shared developer conveniences.
 #
 # This tusk file has some hard opinions about the *relative* location and
-# directory names for RRR's quorum fork and rororo go package.
+# directory names for RRR's quorum fork.
 options:
   node:
     default: "0"
@@ -13,13 +13,13 @@ options:
   nodedir:
     usage: "parent dir for node --datadir"
     default:
-      command: echo $(cd ../rororo-nodes/node0; pwd)
+      command: echo $(cd ../nodes/node0; pwd)
 
   gopath:
     default:
-      command: echo $(cd ../quorum-rororo-gopath; pwd)
+      command: echo $(cd ../gopath; pwd)
 
-name: rororodev
+name: rrrdev
 tasks:
 
   rawtx:
@@ -36,7 +36,7 @@ tasks:
             python3 rawtx.py -v \
               encode truffle/build/contracts/Migrations.json \
               --nonce ${nonce} \
-              -k ../rororo-nodes/node0/genesis-wallet.key
+              -k ../nodes/node0/genesis-wallet.key
 
   attach:
     usage: "geth attach using docker exec go run"
@@ -45,7 +45,7 @@ tasks:
       - command:
           exec: |
             set -e
-            docker exec -it rororo_node${node}_1 \
+            docker exec -it rrr_node${node}_1 \
               geth attach /nodes/node${node}/data/geth.ipc
 
   gethjex:
@@ -60,7 +60,7 @@ tasks:
       - command:
           exec: |
             set -e
-            docker exec -it rororo_node${node}_1 \
+            docker exec -it rrr_node${node}_1 \
               go run github.com/ethereum/go-ethereum/cmd/geth \
               attach /nodes/node${node}/data/geth.ipc --exec "${exec}"
 

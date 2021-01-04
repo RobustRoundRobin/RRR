@@ -1,18 +1,28 @@
 interpreter: bash -c
 name: rrr-gen
-tasks:
-  set-build-env:
-    run:
-      # OPINIONS EXPRESSED HERE
-      # see tusk.yaml for explanations
-      - set-environment:
-          QUORUM_GOPATH: "../quorum-rororo-gopath"
-          DEFAULT_NODE_DIR: "../rororo-nodes/node0"
-          BOOTNODE_DIR: "../rororo-nodes/bootnode"
-          NODES_DIR: "../rororo-nodes"
+options:
+  node:
+    default: "0"
+    short: "n"
 
-          RUN_GETH: "go run github.com/ethereum/go-ethereum/cmd/geth"
-          # RUN_GETH: "docker run --rm geth-rrr:latest"
+  node0dir:
+    usage: "node0's --datadir's, used as source for some default configuration"
+    default:
+      command: echo $(cd ../nodes/node0; pwd)
+
+  nodesdir:
+    usage: "parent dir for all node[n] --datadir's"
+    short: "w"
+    default:
+      command: echo $(cd ../nodes; pwd)
+  gopath:
+    default:
+      command: echo $(cd ../gopath; pwd)
+
+  geth:
+    default: "go run github.com/ethereum/go-ethereum/cmd/geth"
+
+tasks:
 
   init-all:
     usage: "genesis for all nodes in range [start - end]"
@@ -25,14 +35,13 @@ tasks:
         default: "11"
 
     run:
-      - task: set-build-env
       - command:
           exec: |
             set -e
             for n in $(seq ${start} ${end}); do
               tusk -q -f tusk-genesis.yaml genesis -n ${n} -f
-              mkdir -p $(pwd)/${NODES_DIR}/node${n}/data/geth
-              cp static-nodes.json $(pwd)/${NODES_DIR}/node${n}/data/geth/
+              mkdir -p ${nodesdir}/node${n}/data/geth
+              cp static-nodes.json ${nodesdir}/node${n}/data/geth/
             done
 
   reset-all:
@@ -46,15 +55,13 @@ tasks:
         default: "11"
 
     run:
-      - task: set-build-env
       - command:
           exec: |
             set -e
-            export GOPATH=$(cd $QUORUM_GOPATH; pwd)
+            export GOPATH=${gopath}
 
             for n in $(seq ${start} ${end}); do
-              DATA_DIR=$(pwd)/${NODES_DIR}/node${n}/data
-              ${RUN_GETH} removedb --datadir ${DATA_DIR}
+              ${geth} removedb --datadir ${nodesdir}/node${n}/data
             done
 
   keys:
@@ -88,18 +95,13 @@ tasks:
         short: "f"
 
     run:
-      - task: set-build-env
       - command:
           exec: |
             set -e
-            export GOPATH=$(cd $QUORUM_GOPATH; pwd)
+            export GOPATH=${gopath}
 
             if ${force}; then echo "force deleting $(pwd)/static-nodes.json"; rm -f $(pwd)/static-nodes.json; fi
             [ -f $(pwd)/static-nodes.json ] && echo "$(pwd)/static-nodes.json exists, -f to force delete" && exit 1
-
-            # the node that runs genesis gets to enrol whatever identities it
-            # likes
-            NODE_DIR=$(pwd)/${NODES_DIR}/node0
 
             endend=$((${end} - 1))
 
@@ -115,65 +117,62 @@ tasks:
 
             echo "[" | tee -a static-nodes-loopback.json
             for n in $(seq ${start} ${endend}); do
-              printf "\"enode://$(cat $(pwd)/${NODES_DIR}/node${n}/enode)@127.0.0.1:7200\",\n" | tee -a static-nodes-loopback.json
+              printf "\"enode://$(cat ${nodesdir}/node${n}/enode)@127.0.0.1:7200\",\n" | tee -a static-nodes-loopback.json
             done
-            printf "\"enode://$(cat $(pwd)/${NODES_DIR}/node${end}/enode)@127.0.0.1:7200\"\n" | tee -a static-nodes-loopback.json
+            printf "\"enode://$(cat ${nodesdir}/node${end}/enode)@127.0.0.1:7200\"\n" | tee -a static-nodes-loopback.json
             echo "]" | tee -a static-nodes-loopback.json
 
             echo "[" | tee -a static-nodes.json
             for n in $(seq ${start} ${endend}); do
-              printf "\"enode://$(cat $(pwd)/${NODES_DIR}/node${n}/enode)@node${n}:7200\",\n" | tee -a static-nodes.json
+              printf "\"enode://$(cat ${nodesdir}/node${n}/enode)@node${n}:7200\",\n" | tee -a static-nodes.json
             done
-            printf "\"enode://$(cat $(pwd)/${NODES_DIR}/node${end}/enode)@node${end}:7200\"\n" | tee -a static-nodes.json
+            printf "\"enode://$(cat ${nodesdir}/node${end}/enode)@node${end}:7200\"\n" | tee -a static-nodes.json
             echo "]" | tee -a static-nodes.json
 
             # attempts to resolve the node's and that doesn't work out side of
             # compose
-            go run github.com/ethereum/go-ethereum/cmd/rrr genextra --datadir ${NODE_DIR} $(pwd)/static-nodes-loopback.json
+            go run github.com/ethereum/go-ethereum/cmd/rrr genextra --showids --datadir ${node0dir} $(pwd)/static-nodes-loopback.json
 
 
   genesis:
     usage: "do genesis (using go run and sources in quorum-rororo)"
     options:
       node:
-        usage: "node number"
-        short: "n"
         default: "0"
+        short: "n"
       datadir:
-        usage: "geth init --datadir, defaults to NODES_DIR/node0/data"
-        default: ""
+        usage: "geth init --datadir, defaults to nodesdir/node0/data"
+        default:
+          command: echo $(pwd)/../nodes/node0/data
         short: "d"
       genesis:
         usage: "genesis.json file, defaults to datadir/../gensis.json"
-        default: ""
         short: "G"
+        default:
+          command: echo $(pwd)/../nodes/node0/genesis.json
       force:
         usage: "Force delete of existing datadir"
         type: bool
         short: "f"
 
     run:
-      - task: set-build-env
       - command:
           exec: |
             set -e
-            export GOPATH=$(cd $QUORUM_GOPATH; pwd)
-            TASK_DIR=$(pwd)
 
-            [ -n "${genesis}" ] && "${TASK_DIR}/${genesis}" || GENESIS_JSON="${TASK_DIR}/${NODES_DIR}/node0/genesis.json"
-            [ -n "${node}" ] && NODE_DIR="${TASK_DIR}/${NODES_DIR}/node${node}" || NODE_DIR="${TASK_DIR}/${NODES_DIR}/node0"
-            [ -n "${datadir}" ] && DATA_DIR="${TASK_DIR}/${datadir}" || DATA_DIR=${NODE_DIR}/data
+
+            DATA_DIR=${nodesdir}/node${node}/data
 
             if ${force}; then echo "force deleting: ${DATA_DIR}"; rm -rf ${DATA_DIR}; fi
 
             [ -d ${DATA_DIR} ] && echo "datadir exists, -f to force delete" && exit 1
 
-            mkdir -p ${DATA_DIR} && cd ${DATA_DIR}
-            DATA_DIR=$(pwd)
+            mkdir -p ${DATA_DIR}
 
-            ${RUN_GETH} --datadir=${DATA_DIR} init ${GENESIS_JSON}
+            export GOPATH=${gopath}
+            ${geth} --datadir=${DATA_DIR} init ${genesis}
 
-            echo "${DATA_DIR} from ${GENESIS_JSON}"
+            echo "${DATA_DIR} from ${genesis}"
 
   nodekey:
     usage: "generate node key (using go run and sources in quorum-rororo)"
@@ -196,16 +195,15 @@ tasks:
         short: "f"
 
     run:
-      - task: set-build-env
       - command:
           exec: |
             set -e
-            export GOPATH=$(cd $QUORUM_GOPATH; pwd)
+            export GOPATH=${gopath}
 
             TASK_DIR=$(pwd)
 
             if [[ "${key}" != "/dev/stdout" ]] || [[ "${enode}" != "/dev/stdout" ]]; then
-              [ -n "${node}" ] && NODE_DIR="${TASK_DIR}/${NODES_DIR}/node${node}" || NODE_DIR="${TASK_DIR}/${NODES_DIR}/node0"
+              [ -n "${node}" ] && NODE_DIR="${nodesdir}/node${node}" || NODE_DIR="${nodesdir}/node0"
               mkdir -p ${NODE_DIR} && cd ${NODE_DIR}
             fi
 
