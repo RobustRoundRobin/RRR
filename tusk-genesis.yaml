@@ -1,23 +1,31 @@
 interpreter: bash -c
 name: rrr-gen
 options:
+
+  workdir:
+    usage: >
+      The common root for everything we need. All defaults are relative to this
+    environment: PWD
+
+  node0dir:
+    usage: node0's --datadir's, used as source for some default configuration
+    default:
+      command: echo ${workdir}/nodes/node0
+
   node:
     default: "0"
     short: "n"
-
-  node0dir:
-    usage: "node0's --datadir's, used as source for some default configuration"
-    default:
-      command: echo $(cd ../nodes/node0; pwd)
 
   nodesdir:
     usage: "parent dir for all node[n] --datadir's"
     short: "w"
     default:
-      command: echo $(cd ../nodes; pwd)
+      command: echo ${workdir}/nodes
+
   gopath:
+    environment: GOPATH
     default:
-      command: echo $(cd ../gopath; pwd)
+      command: echo ${workdir}/gopath
 
   geth:
     default: "go run github.com/ethereum/go-ethereum/cmd/geth"
@@ -38,10 +46,15 @@ tasks:
       - command:
           exec: |
             set -e
+
+            RRR_DIR=$(pwd)
+
+            cd ${workdir}
+
             for n in $(seq ${start} ${end}); do
-              tusk -q -f tusk-genesis.yaml genesis -n ${n} -f
+              tusk -q -f $RRR_DIR/tusk-genesis.yaml genesis --workdir ${workdir} -n ${n} -f
               mkdir -p ${nodesdir}/node${n}/data/geth
-              cp static-nodes.json ${nodesdir}/node${n}/data/geth/
+              cp $RRR_DIR/static-nodes.json ${nodesdir}/node${n}/data/geth/
             done
 
   reset-all:
@@ -58,6 +71,7 @@ tasks:
       - command:
           exec: |
             set -e
+            cd ${workdir}
             export GOPATH=${gopath}
 
             for n in $(seq ${start} ${end}); do
@@ -78,7 +92,7 @@ tasks:
           exec: |
             set -e
             for n in $(seq ${start} ${end}); do
-              tusk -q -f tusk-genesis.yaml nodekey -n ${n} -f
+              tusk -q -f tusk-genesis.yaml nodekey --workdir=${workdir} -n ${n} -f
             done
   extra:
     usage: "generate the extradata hex string for the genesi document"
@@ -98,7 +112,11 @@ tasks:
       - command:
           exec: |
             set -e
+
+            cd ${workdir}
             export GOPATH=${gopath}
+
+            NODES_DIR=${nodesdir}
 
             if ${force}; then echo "force deleting $(pwd)/static-nodes.json"; rm -f $(pwd)/static-nodes.json; fi
             [ -f $(pwd)/static-nodes.json ] && echo "$(pwd)/static-nodes.json exists, -f to force delete" && exit 1
@@ -143,13 +161,13 @@ tasks:
       datadir:
         usage: "geth init --datadir, defaults to nodesdir/node0/data"
         default:
-          command: echo $(pwd)/../nodes/node0/data
+          command: echo ${nodesdir}/node${node}/data
         short: "d"
       genesis:
         usage: "genesis.json file, defaults to datadir/../gensis.json"
         short: "G"
         default:
-          command: echo $(pwd)/../nodes/node0/genesis.json
+          command: echo ${node0dir}/genesis.json
       force:
         usage: "Force delete of existing datadir"
         type: bool
@@ -160,8 +178,9 @@ tasks:
           exec: |
             set -e
 
-
-            DATA_DIR=${nodesdir}/node${node}/data
+            cd ${workdir}
+            export GOPATH=${gopath}
+            DATA_DIR=${datadir}
 
             if ${force}; then echo "force deleting: ${DATA_DIR}"; rm -rf ${DATA_DIR}; fi
 
@@ -169,7 +188,6 @@ tasks:
 
             mkdir -p ${DATA_DIR}
 
-            export GOPATH=${gopath}
             ${geth} --datadir=${DATA_DIR} init ${genesis}
 
             echo "${DATA_DIR} from ${genesis}"
@@ -198,12 +216,16 @@ tasks:
       - command:
           exec: |
             set -e
-            export GOPATH=${gopath}
 
-            TASK_DIR=$(pwd)
+            cd ${workdir}
+
+            export GOPATH=${gopath}
+            NODES_DIR=${nodesdir}
+
+            export GOPATH=$GOPATH
 
             if [[ "${key}" != "/dev/stdout" ]] || [[ "${enode}" != "/dev/stdout" ]]; then
-              [ -n "${node}" ] && NODE_DIR="${nodesdir}/node${node}" || NODE_DIR="${nodesdir}/node0"
+              [ -n "${node}" ] && NODE_DIR="$NODES_DIR/node${node}" || NODE_DIR="$NODES_DIR/node0"
               mkdir -p ${NODE_DIR} && cd ${NODE_DIR}
             fi
 
