@@ -154,7 +154,9 @@ message to the network
 In our implementation, the candidate provides their public node key as pkn, and
 the latest block hash as hb. And sets Qn to 0.
 
-An out of band mechanism is used to supply acceptable pkn's to current members
+An out of band mechanism is used to supply acceptable pkn's to current members.
+XXX: lets at least respect --permissioned and the nodes identified by
+permissioned.json
 
 ### Re-enrolment
 
@@ -353,7 +355,7 @@ the identities is their 'order of enrolment'
 From 4.1 we have
 
     i.  hash (id || pkn || r || hb )
-    ii. Enrolln=(Qn,pkn,r,hb, f)
+    ii. Enroln=(Qn,pkn,r,hb, f)
 
 
 And
@@ -387,7 +389,7 @@ D is now established
 
 Needs to include
 
-    Blockr=(Intent,{Confirm},{tx},{Enroll},seedr,πr,siдc)
+    Blockr=(Intent,{Confirm},{tx},{Enrol},seedr,πr,siдc)
 
     -- 5.2 endorsment protocol
 

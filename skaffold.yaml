@@ -1,3 +1,4 @@
+# skaffold build -t latest -d ""
 apiVersion: skaffold/v2beta10
 kind: Config
 build:
@@ -10,4 +11,8 @@ build:
       context: ../gopath/src/github.com/ethereum/go-ethereum
       docker:
         dockerfile: Dockerfile-rrr
+    - image: rrr-delve
+      context: compose
+      docker:
+        dockerfile: Dockerfile-delve
 

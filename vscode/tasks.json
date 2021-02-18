@@ -3,50 +3,5 @@
     // for the documentation about the tasks.json format
     "version": "2.0.0",
     "tasks": [
-      {
-        "label": "reset genesis",
-        "type": "shell",
-        "command": "rm",
-        "args": [ "-rf", "${workspaceFolder}/../rororo-nodes/node0/data" ],
-        "group":"build",
-        "presentation": {
-          "reveal": "always",
-          "showReuseMessage": false
-        },
-      },
-      {
-        "label": "rororo genesis",
-        "type": "shell",
-        "command": "tusk",
-        "args": [ "-q", "-f", "${workspaceFolder}/../rororo-devclutter/tusk.yml", "genesis", "-f" ],
-        "group":"build",
-        "presentation": {
-          "reveal": "always",
-          "panel": "new"
-        }
-      },
-      {
-        "label": "reset genesis1",
-        "type": "shell",
-        "command": "rm",
-        "args": [ "-rf", "${workspaceFolder}/../rororo-nodes/node1/data" ],
-        "group":"build",
-        "presentation": {
-          "reveal": "always",
-          "showReuseMessage": false
-        },
-      },
-      {
-        "label": "rororo genesis1",
-        "type": "shell",
-        "command": "tusk",
-        "args": [ "-q", "-f", "${workspaceFolder}/../rororo-devclutter/tusk.yml", "genesis", "-f", "--datadir", "${workspaceFolder}/../rororo-nodes/node1/data"],
-        "group":"build",
-        "presentation": {
-          "reveal": "always",
-          "panel": "new"
-        }
-      }
-
     ]
   }

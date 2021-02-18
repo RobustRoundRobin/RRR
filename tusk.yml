@@ -7,17 +7,26 @@ interpreter: bash -c
 # This tusk file has some hard opinions about the *relative* location and
 # directory names for RRR's quorum fork.
 options:
+
+  workdir:
+    usage: >
+      The common root for everything we need. All defaults are relative to this
+    environment: PWD
+
+  gopath:
+    environment: GOPATH
+    default:
+      command: echo ${workdir}/gopath
+
   node:
     default: "0"
     short: "n"
-  nodedir:
-    usage: "parent dir for node --datadir"
-    default:
-      command: echo $(cd ../nodes/node0; pwd)
 
-  gopath:
+  nodesdir:
+    usage: "parent dir for all node[n] --datadir's"
+    short: "w"
     default:
-      command: echo $(cd ../gopath; pwd)
+      command: echo ${workdir}/nodes
 
 name: rrrdev
 tasks:
@@ -27,16 +36,60 @@ tasks:
     options:
       nonce:
         default: "0"
+      key:
+        default: nodes/node0/genesis-wallet.key
+
+    args:
+      contract_json:
     run:
       - command:
           exec: |
             set -e
+            scriptdir=$(pwd)
+            cd ${workdir}
+
             # SimpleStorage needs support for contract constructor parameters
             # encode truffle/build/contracts/SimpleStorage.json
-            python3 rawtx.py -v \
-              encode truffle/build/contracts/Migrations.json \
+            python3 ${scriptdir}/rawtx.py -v \
+              encode ${contract_json} \
               --nonce ${nonce} \
-              -k ../nodes/node0/genesis-wallet.key
+              -k ${key}
+
+  enrol:
+    usage: "enrol id (try keyid to get the argument)"
+    args:
+      nodeid:
+        usage: "hex encoding of the un compressed ecdsa secp256k1 public node key. try keyid command"
+    options:
+      host:
+        default: 127.0.0.1
+    run:
+      - command:
+          exec: |
+            curl --location --request POST 'http://${host}:8545/' \
+              --header 'Content-Type: application/json' \
+              --data-raw '{
+              	"jsonrpc":"2.0",
+              	"method":"rrr_queueEnrolment",
+              	"params":["${nodeid}"],
+              	"id":1
+              }'
+
+  pendingenrol:
+    args:
+      nodeid:
+        usage: "hex encoding of the un compressed ecdsa secp256k1 public node key. try keyid command"
+    run:
+      - command:
+          exec: |
+            curl --location --request POST 'http://127.0.0.1:8545/' \
+              --header 'Content-Type: application/json' \
+              --data-raw '{
+              	"jsonrpc":"2.0",
+              	"method":"rrr_isEnrolmentPending",
+              	"params":["${nodeid}"],
+              	"id":1
+              }'
 
   attach:
     usage: "geth attach using docker exec go run"
@@ -68,7 +121,7 @@ tasks:
     usage: "get the wallet address from a key"
     options:
       key:
-        usage: "binary format key file"
+        default: nodes/node0/genesis-wallet.key
         short: "k"
       hex_key:
         usage: "hex format key file"
@@ -80,8 +133,6 @@ tasks:
       - command:
           exec: |
             set -e
-            mkdir -p ${nodedir} && cd ${nodedir}
-
             cat <<PYEND | python
             import secrets, coincurve, sha3
 
@@ -100,7 +151,8 @@ tasks:
       - command:
           exec: |
             set -e
-            mkdir -p ${nodedir} && cd ${nodedir}
+
+            cd ${workdir}
 
             cat <<PYEND | python
             import secrets, coincurve, sha3
@@ -115,6 +167,26 @@ tasks:
                     f.write(locals()[var])
 
             print(addr)
+            PYEND
+
+  keyid:
+    usage: "nodeid from node privatekey"
+    args:
+      key:
+    run:
+      - command:
+          exec: |
+            set -e
+
+            cd ${workdir}
+
+            cat <<PYEND | python3
+            import coincurve, sha3
+
+            key = open("${key}", 'r').read()
+            key = coincurve.PrivateKey.from_hex(key[:-1])
+            pub = coincurve.PublicKey.from_valid_secret(key.secret).format(compressed=False)[1:]
+            print(sha3.keccak_256(pub).digest().hex())
             PYEND
 
   import-wallet:
@@ -132,7 +204,7 @@ tasks:
           exec: |
             set -e
             export GOPATH=${gopath}
-            NODE_DIR=${nodedir}
+            NODE_DIR=${nodesdir}/node${node}
 
             mkdir -p ${NODE_DIR}/data/keystore
             export PRIVATE_CONFIG=ignore

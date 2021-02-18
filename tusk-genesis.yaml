@@ -32,6 +32,30 @@ options:
 
 tasks:
 
+
+  copy-static:
+    usage: "copy the current static-nodes.json into all the node directories (unconditionaly)"
+    options:
+      start:
+        short: "s"
+        default: "0"
+      end:
+        short: "e"
+        default: "11"
+
+    run:
+      - command:
+          exec: |
+            set -e
+
+            RRR_DIR=$(pwd)
+
+            cd ${workdir}
+
+            for n in $(seq ${start} ${end}); do
+              cp -v $RRR_DIR/static-nodes.json ${nodesdir}/node${n}/data/geth/
+            done
+
   init-all:
     usage: "genesis for all nodes in range [start - end]"
     options:
@@ -54,7 +78,7 @@ tasks:
             for n in $(seq ${start} ${end}); do
               tusk -q -f $RRR_DIR/tusk-genesis.yaml genesis --workdir ${workdir} -n ${n} -f
               mkdir -p ${nodesdir}/node${n}/data/geth
-              cp $RRR_DIR/static-nodes.json ${nodesdir}/node${n}/data/geth/
+              # cp $RRR_DIR/static-nodes.json ${nodesdir}/node${n}/data/geth/
             done
 
   reset-all:
@@ -103,6 +127,16 @@ tasks:
       end:
         short: "e"
         default: "11"
+
+      staticip:
+        type: bool
+        default: false
+      staticoffset:
+        type: int
+        default: 10
+      staticprefix:
+        # 172.19.0.first + ${start, end}
+        default: "172.19.0."
       force:
         usage: "Force delete of existing datadir"
         type: bool
@@ -113,7 +147,6 @@ tasks:
           exec: |
             set -e
 
-            cd ${workdir}
             export GOPATH=${gopath}
 
             NODES_DIR=${nodesdir}
@@ -140,11 +173,17 @@ tasks:
             printf "\"enode://$(cat ${nodesdir}/node${end}/enode)@127.0.0.1:7200\"\n" | tee -a static-nodes-loopback.json
             echo "]" | tee -a static-nodes-loopback.json
 
+            hoststem=node
+            hoststem=${staticprefix}
+
             echo "[" | tee -a static-nodes.json
             for n in $(seq ${start} ${endend}); do
-              printf "\"enode://$(cat ${nodesdir}/node${n}/enode)@node${n}:7200\",\n" | tee -a static-nodes.json
+              sub=${n}
+              sub=$((${staticoffset} + ${n}))
+              printf "\"enode://$(cat ${nodesdir}/node${n}/enode)@${hoststem}${sub}:7200\",\n" | tee -a static-nodes.json
             done
-            printf "\"enode://$(cat ${nodesdir}/node${end}/enode)@node${end}:7200\"\n" | tee -a static-nodes.json
+            sub=$((${staticoffset} + ${end}))
+            printf "\"enode://$(cat ${nodesdir}/node${end}/enode)@${hoststem}${sub}:7200\"\n" | tee -a static-nodes.json
             echo "]" | tee -a static-nodes.json
 
             # attempts to resolve the node's and that doesn't work out side of

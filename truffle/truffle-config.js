@@ -46,7 +46,7 @@ module.exports = {
       host: "127.0.0.1",     // Localhost (default: none)
       port: 8545,            // Standard Ethereum port (default: none)
       network_id: 53456,     // Custom network
-      // from: "0xfddc8ec119e799a3fb2c3455cabe72a1bd59fb5a"
+      // from: "0xfddc8ec119e799a3fb2c3455cabe72a1bd59fb5a",
       gas: 500000000,        // Gas sent with each transaction (default: ~6700000)
       gasPrice: 0,           // Quorum requires 0 here. 20 gwei (in wei) (default: 100 gwei)
       skipDryRun: true       // Skip dry run before migrations? (default: false for public nets )

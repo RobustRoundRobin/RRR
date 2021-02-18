@@ -94,6 +94,8 @@ x-node-defaults:
   volumes:
     # Defined in the .env file
     - ${RRR_NODE_ROOT}:/nodes
+  networks:
+    rrr:
 
 x-node-exposed:
   &node-exposed
@@ -105,9 +107,9 @@ x-node-exposed:
     # Defined in the .env file
     - ${RRR_NODE_ROOT}:/nodes
   ports:
-    # - "7200:7200"
     - "8545:8300"
-    # - "8400:8400"
+  networks:
+    rrr:
 
 x-node-debug:
   &node-debug
@@ -124,8 +126,8 @@ x-node-debug:
   ports:
     - "2345:2345"
     - "8545:8300"
-    #- "8300"
-    #- "7200"
+  networks:
+    rrr:
 
 x-node-gorun:
   &node-gorun
@@ -146,15 +148,9 @@ networks:
     internal: false
     ipam:
       config:
-        - subnet: 172.19.0.0/24
+        - subnet: ${RRR_BOOTNODE_IP}/24
 
 services:
-  debug:
-    # convenience for building the debug image, not for running it
-    image: rrr-delve:dev
-    build:
-      context: .
-      dockerfile: Dockerfile-delve
 
   # * One of the nodes can be set to << : *node-debug, to be debuged via a
   #   delve connection from the host, but the others must all be node-default or
@@ -164,35 +160,27 @@ services:
   #   node-defaults assumes the image referenced by x-node-defaults has been
   #   built.
   node0:
-    # << : *node-exposed
+    # << : *node-defaults
+    << : *node-exposed
     # << : *node-gorun
-    << : *node-debug
+    # << : *node-debug
     working_dir: /nodes/node0
     networks:
       rrr:
-        ipv4_address: 172.19.0.10
+        ipv4_address: ${RRR_BOOTNODE_IP}
 
   node1:
     << : *node-defaults
     # << : *node-debug
     working_dir: /nodes/node1
-    networks:
-      rrr:
-        ipv4_address: 172.19.0.11
 
   node2:
     << : *node-defaults
     working_dir: /nodes/node2
-    networks:
-      rrr:
-        ipv4_address: 172.19.0.12
 
   node3:
     << : *node-defaults
     working_dir: /nodes/node3
-    networks:
-      rrr:
-        ipv4_address: 172.19.0.13
 
   # The tactic of using 'go run' so that it is fast to iterate code changes
   # does not scale to much more than 5 nodes - the go linker typically gets OOM
@@ -201,78 +189,47 @@ services:
   node4:
     << : *node-defaults
     working_dir: /nodes/node4
-    networks:
-      rrr:
-        ipv4_address: 172.19.0.14
 
   node5:
     << : *node-defaults
     working_dir: /nodes/node5
-    networks:
-      rrr:
-        ipv4_address: 172.19.0.15
 
   node6:
     << : *node-defaults
     working_dir: /nodes/node6
-    networks:
-      rrr:
-        ipv4_address: 172.19.0.16
 
   node7:
     << : *node-defaults
+    # << : *node-debug
     working_dir: /nodes/node7
-    networks:
-      rrr:
-        ipv4_address: 172.19.0.17
 
   node8:
     << : *node-defaults
     working_dir: /nodes/node8
-    networks:
-      rrr:
-        ipv4_address: 172.19.0.18
 
   node9:
     << : *node-defaults
     working_dir: /nodes/node9
-    networks:
-      rrr:
-        ipv4_address: 172.19.0.19
-
 
   node10:
     << : *node-defaults
     working_dir: /nodes/node10
-    networks:
-      rrr:
-        ipv4_address: 172.19.0.20
 
   node11:
     << : *node-defaults
     working_dir: /nodes/node11
-    networks:
-      rrr:
-        ipv4_address: 172.19.0.21
 
   node12:
     << : *node-defaults
     working_dir: /nodes/node12
-    networks:
-      rrr:
-        ipv4_address: 172.19.0.22
 
   node13:
     << : *node-defaults
     working_dir: /nodes/node13
-    networks:
-      rrr:
 
   node14:
     << : *node-defaults
     working_dir: /nodes/node14
-    networks:
-      rrr:
 
 volumes:
   go-pkg-volume:
