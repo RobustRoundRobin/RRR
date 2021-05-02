@@ -41,7 +41,7 @@ tasks:
         default: "0"
       end:
         short: "e"
-        default: "11"
+        default: "14"
 
     run:
       - command:
@@ -64,7 +64,7 @@ tasks:
         default: "0"
       end:
         short: "e"
-        default: "11"
+        default: "14"
 
     run:
       - command:
@@ -78,7 +78,6 @@ tasks:
             for n in $(seq ${start} ${end}); do
               tusk -q -f $RRR_DIR/tusk-genesis.yaml genesis --workdir ${workdir} -n ${n} -f
               mkdir -p ${nodesdir}/node${n}/data/geth
-              # cp $RRR_DIR/static-nodes.json ${nodesdir}/node${n}/data/geth/
             done
 
   reset-all:
@@ -89,7 +88,7 @@ tasks:
         default: "0"
       end:
         short: "e"
-        default: "11"
+        default: "14"
 
     run:
       - command:
@@ -110,14 +109,41 @@ tasks:
         default: "0"
       end:
         short: "e"
-        default: "11"
+        default: "14"
     run:
       - command:
           exec: |
             set -e
+
+            NODES_DIR=${nodesdir}
             for n in $(seq ${start} ${end}); do
               tusk -q -f tusk-genesis.yaml nodekey --workdir=${workdir} -n ${n} -f
+              ALPHA=$(tusk -q -f tusk-genesis.yaml alpha --workdir ${workdir} -j $NODES_DIR/node${n}/key)
+              echo $ALPHA > $NODES_DIR/node${n}/alpha.json
             done
+
+  alphas:
+    usage: "generate a range of keys"
+    options:
+      start:
+        short: "s"
+        default: "0"
+      end:
+        short: "e"
+        default: "14"
+    run:
+      - command:
+          exec: |
+            set -e
+
+            NODES_DIR=${nodesdir}
+            for n in $(seq ${start} ${end}); do
+
+              ALPHA=$(tusk -q -f tusk-genesis.yaml alpha --workdir ${workdir} -j $NODES_DIR/node${n}/key)
+              echo $ALPHA > $NODES_DIR/node${n}/alpha.json
+              echo "Wrote $NODES_DIR/node${n}/alpha.json"
+            done
+
   extra:
     usage: "generate the extradata hex string for the genesi document"
     options:
@@ -126,7 +152,7 @@ tasks:
         default: "0"
       end:
         short: "e"
-        default: "11"
+        default: "14"
 
       staticip:
         type: bool
@@ -151,8 +177,10 @@ tasks:
 
             NODES_DIR=${nodesdir}
 
+            if ${force}; then echo "force deleting $(pwd)/alpha-contrib.json"; rm -f $(pwd)/alpha-contrib.json; fi
             if ${force}; then echo "force deleting $(pwd)/static-nodes.json"; rm -f $(pwd)/static-nodes.json; fi
             [ -f $(pwd)/static-nodes.json ] && echo "$(pwd)/static-nodes.json exists, -f to force delete" && exit 1
+            [ -f $(pwd)/alpha-contrib.json ] && echo "$(pwd)/alpha-contrib.json exists, -f to force delete" && exit 1
 
             endend=$((${end} - 1))
 
@@ -186,9 +214,23 @@ tasks:
             printf "\"enode://$(cat ${nodesdir}/node${end}/enode)@${hoststem}${sub}:7200\"\n" | tee -a static-nodes.json
             echo "]" | tee -a static-nodes.json
 
+
+            echo "{" | tee -a alpha-contrib.json
+            for n in $(seq ${start} ${endend}); do
+              printf "\"0x$(cat ${nodesdir}/node${n}/enode)\":" | tee -a alpha-contrib.json
+              printf "$(cat ${nodesdir}/node${n}/alpha.json),\n"  | tee -a alpha-contrib.json
+            done
+
+            printf "\"0x$(cat ${nodesdir}/node${end}/enode)\":" | tee -a alpha-contrib.json
+            printf "$(cat ${nodesdir}/node${end}/alpha.json)\n"  | tee -a alpha-contrib.json
+            echo "}" | tee -a alpha-contrib.json
+
             # attempts to resolve the node's and that doesn't work out side of
             # compose
-            go run github.com/ethereum/go-ethereum/cmd/rrr genextra --showids --datadir ${node0dir} $(pwd)/static-nodes-loopback.json
+            go run github.com/ethereum/go-ethereum/cmd/rrr genextra \
+              --showids --datadir ${node0dir} \
+                --alpha-contrib $(pwd)/alpha-contrib.json \
+                $(pwd)/static-nodes-loopback.json
 
 
   genesis:
@@ -281,4 +323,38 @@ tasks:
             ENODE=$(echo $KEY | go run github.com/ethereum/go-ethereum/cmd/bootnode --nodekey /dev/stdin --writeaddress)
             echo $KEY > ${key} && echo "wrote: ${key}"
             echo $ENODE > ${enode} && echo "wrote: ${enode}"
+
             pwd
+
+  alpha:
+    usage: "alpha contribution from node private key file"
+    options:
+      json:
+        short: "j"
+        type: bool
+
+    args:
+      key:
+    run:
+      - command:
+          exec: |
+            set -e
+
+            cd ${workdir}
+
+            cat <<PYEND | python3
+            import coincurve, sha3, secrets
+
+            key = open("${key}", 'r').read()
+            key = coincurve.PrivateKey.from_hex(key[:-1])
+            rawpub = coincurve.PublicKey.from_valid_secret(key.secret).format(compressed=False)
+            nodeid = sha3.keccak_256(rawpub[1:]).digest()
+            # This nodes contribution to the genesis seed alpha
+            alpha = secrets.token_bytes(32)
+            sig = key.sign_recoverable(alpha, hasher=None)
+            print(len(sig))
+            if "${json}" != "false":
+              print(f'{{"alpha": "0x{alpha.hex()}", "sig": "0x{sig.hex()}"}}')
+            else:
+              print(f"0x{rawpub.hex()} 0x{alpha.hex()} 0x{sig.hex()}")
+            PYEND

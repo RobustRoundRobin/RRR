@@ -20,7 +20,8 @@ x-node-env-defaults:
   PRIVATE_CONFIG: ignore
   RRR_OPTS: "--rrr.nc 2 --rrr.ne 7 --rrr.q 4 --rrr.ta 2000 --rrr.confirmphase 1500 --rrr.roundlength 3500"
   # DISCOVERY_OPTS: "--nodiscover"
-  DISCOVERY_OPTS: "--nat=none --netrestrict=${RRR_BOOTNODE_IP}/24 --bootnodes=enode://${RRR_BOOTNODE_PUB}@${RRR_BOOTNODE_IP}:7200"
+  NAT_OPTS: "--nat=none"
+  DISCOVERY_OPTS: "--netrestrict=${RRR_BOOTNODE_IP}/24 --bootnodes=enode://${RRR_BOOTNODE_PUB}@${RRR_BOOTNODE_IP}:7200"
   P2P_PORT: 7200
   RPC_OPTS: "\
    --allow-insecure-unlock \
@@ -33,7 +34,7 @@ x-node-env-defaults:
   MINER_OPTS: "\
    --miner.gastarget 3000000000 \
    --mine --minerthreads 1 --miner.etherbase ${RRR_ETHERBASE}"
-  LOG_OPTS: "--vmodule consensus/*=5,miner/*=3,eth/*=3,p2p/*=3 --verbosity 3"
+  LOG_OPTS: "--vmodule consensus/*=7,miner/*=3,eth/*=2,p2p/*=2 --verbosity 3"
   # --debug adds source and line no
   # LOG_OPTS: "--debug --vmodule consensus/*=7,miner/*=5 --verbosity 3"
 
@@ -74,7 +75,7 @@ x-node-base:
       $${RUN_GETH_CMD} \
           $${RRR_OPTS} \
           --networkid $${NETWORKID} \
-          $${DISCOVERY_OPTS} \
+          $${NAT_OPTS} $${DISCOVERY_OPTS} \
           --port $${P2P_PORT} \
           --nodekey key \
           --datadir data \
@@ -94,20 +95,6 @@ x-node-defaults:
   volumes:
     # Defined in the .env file
     - ${RRR_NODE_ROOT}:/nodes
-  networks:
-    rrr:
-
-x-node-exposed:
-  &node-exposed
-  << : *node-base
-  environment:
-    << : *node-env-defaults
-  image: geth-rrr:latest
-  volumes:
-    # Defined in the .env file
-    - ${RRR_NODE_ROOT}:/nodes
-  ports:
-    - "8545:8300"
   networks:
     rrr:
 
@@ -160,10 +147,14 @@ services:
   #   node-defaults assumes the image referenced by x-node-defaults has been
   #   built.
   node0:
-    # << : *node-defaults
-    << : *node-exposed
-    # << : *node-gorun
     # << : *node-debug
+    << : *node-defaults
+    environment:
+      << : *node-env-defaults
+      NAT_OPTS: "--nat=extip:${RRR_BOOTNODE_IP}"
+    ports:
+      - "8545:8300"
+
     working_dir: /nodes/node0
     networks:
       rrr:

@@ -31,6 +31,15 @@ options:
 name: rrrdev
 tasks:
 
+  build:
+    run:
+      - command:
+          exec: |
+            set -e
+            export SKAFFOLD_DEFAULT_REPO=""
+            cd ${workdir}/devclutter
+            skaffold build -t latest
+
   rawtx:
     usage: "generate a raw transaction (of arbitrary kind)"
     options:
