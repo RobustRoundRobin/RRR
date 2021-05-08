@@ -1,11 +1,5 @@
 interpreter: bash -c
 
-# NOTICE: Some of these arrangements are very transitory. Once we have things
-# rolling, this repository may/should ? get completely removed. It may become a
-# long term home for shared developer conveniences.
-#
-# This tusk file has some hard opinions about the *relative* location and
-# directory names for RRR's quorum fork.
 options:
 
   workdir:
@@ -31,36 +25,13 @@ options:
 name: rrrdev
 tasks:
 
-  prebuild:
-    run:
-      - command:
-          exec: |
-            # can't support arbitrary workdir
-            cp dotdockerignore ../buildcontext
-
-  build:
-    run:
-      - command:
-          exec: |
-            set -e
-            mkdir -p ${workdir}/buildcontext
-            rsync -a ${workdir}/quorum ${workdir}/buildcontext
-            rsync -a ${workdir}/go-rrr ${workdir}/buildcontext
-            cp buildcontext/.dockerignore ${workdir}/buildcontext/.dockerignore
-            cp buildcontext/Dockerfile ${workdir}/buildcontext/
-            cp buildcontext/skaffold.yaml ${workdir}/buildcontext/
-
-            cd ${workdir}/buildcontext
-            export SKAFFOLD_DEFAULT_REPO=""
-            skaffold build -t latest
-
   rawtx:
     usage: "generate a raw transaction (of arbitrary kind)"
     options:
       nonce:
         default: "0"
       key:
-        default: nodes/node0/genesis-wallet.key
+        default: ${workdir}/nodes/node0/genesis-wallet.key
 
     args:
       contract_json:

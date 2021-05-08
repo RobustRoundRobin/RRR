@@ -40,6 +40,7 @@ x-node-env-defaults:
 
   # Different default ways to start geth
 
+  LAUNCH_DIR: "/"
   RUN_GETH_CMD: geth
 
 # env for debuging from the host via dlv
@@ -47,6 +48,7 @@ x-node-env-debug:
   &node-env-debug
   << : *node-env-defaults
   GOCACHE: /tmp/go-cache
+  LAUNCH_DIR: "/go/src/quorum"
   RUN_GETH_CMD: "/dbg/dlv debug --headless --listen=:2345 --log --api-version=2 github.com/ethereum/go-ethereum/cmd/geth -- "
 
 # env for running from host sources (rather than building the image) - faster
@@ -56,6 +58,7 @@ x-node-env-gorun:
   &node-env-gorun
   << : *node-env-defaults
   GOCACHE: /tmp/go-cache
+  LAUNCH_DIR: "/go/src/quorum"
   RUN_GETH_CMD: go run github.com/ethereum/go-ethereum/cmd/geth
 
 x-node-base:
@@ -68,6 +71,8 @@ x-node-base:
     - /bin/sh
     - -cx
     - |
+      NODE_DIR=$$(pwd)
+      cd $${LAUNCH_DIR}
       # The RUN_GETH_CMD variable is set by the environment of each of the
       # supported x-node-{flavour}'s, the others all come from node-env-defaults
       # It is assumed that the service entry sets the working_dir to the
@@ -77,8 +82,8 @@ x-node-base:
           --networkid $${NETWORKID} \
           $${NAT_OPTS} $${DISCOVERY_OPTS} \
           --port $${P2P_PORT} \
-          --nodekey key \
-          --datadir data \
+          --nodekey $${NODE_DIR}/key \
+          --datadir $${NODE_DIR}/data \
           --gcmode archive  --syncmode full \
           --nousb \
           --rpcapi "rrr,admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum" \
@@ -147,13 +152,11 @@ services:
   #   node-defaults assumes the image referenced by x-node-defaults has been
   #   built.
   node0:
-    # << : *node-debug
-    << : *node-defaults
-    environment:
-      << : *node-env-defaults
-      NAT_OPTS: "--nat=extip:${RRR_BOOTNODE_IP}"
-    ports:
-      - "8545:8300"
+    << : *node-debug
+    # << : *node-defaults
+    #environment:
+    #  << : *node-env-defaults
+    #  NAT_OPTS: "--nat=extip:${RRR_BOOTNODE_IP}"
 
     working_dir: /nodes/node0
     networks:

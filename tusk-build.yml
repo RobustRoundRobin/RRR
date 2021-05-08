@@ -8,11 +8,21 @@ options:
 
 # Runes for building things
 tasks:
-  build:
+
+  images:
     run:
       - command:
           exec: |
             set -e
+            [ ! -d ${workdir}/quorum ] && echo "RobustRoundRobin/quorum git clone missing" && exit 1
+            [ ! -d ${workdir}/go-rrr ] && echo "RobustRoundRobin/go-rrr git clone missing" && exit 1
+            mkdir -p ${workdir}/buildcontext
+            rsync -a ${workdir}/quorum ${workdir}/buildcontext
+            rsync -a ${workdir}/go-rrr ${workdir}/buildcontext
+            cp buildcontext/.dockerignore ${workdir}/buildcontext/.dockerignore
+            cp buildcontext/Dockerfile* ${workdir}/buildcontext/
+            cp buildcontext/skaffold.yaml ${workdir}/buildcontext/
+
+            cd ${workdir}/buildcontext
             export SKAFFOLD_DEFAULT_REPO=""
-            cd ${workdir}/devclutter
             skaffold build -t latest

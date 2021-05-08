@@ -9,3 +9,8 @@ build:
   artifacts:
     - image: geth-rrr
       context: .
+    - image: rrrctl
+      context: .
+      docker:
+        dockerfile: Dockerfile-rrrctl
+

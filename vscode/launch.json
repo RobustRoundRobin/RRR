@@ -8,8 +8,8 @@
             "name": "rawtx",
             "type": "python",
             "request": "launch",
-            "cwd": "${workspaceFolder}/../rrr/devclutter/",
-            "program": "${workspaceFolder}/../rrr/devclutter/rawtx.py",
+            "cwd": "${workspaceFolder}",
+            "program": "${workspaceFolder}/rawtx.py",
             "args": [
                 "--verbose",
                 "encode",
@@ -28,30 +28,15 @@
             "port": 2345,
             "host": "127.0.0.1",
             "remotePath": "/go/src",
-            "cwd": "${workspaceFolder}/src"
+            "cwd": "/Users/robin/jitsuin/rrr",
+            "trace": "log"
         },
-        {
-            "name": "rororo genextra 1",
-            "type": "go",
-            "request": "launch",
-            "mode": "debug",
-            "cwd": "${workspaceFolder}",
-            "program": "${workspaceFolder}/src/github.com/ethereum/go-ethereum/cmd/rrr",
-            "env": { "PRIVATE_CONFIG":"ignore"},
-            "args": [
-                "genextra",
-                "${workspaceFolder}/../devclutter/static-nodes.json",
-                "--datadir", "${workspaceFolder}/../nodes/node0/data",
-                "--key", "${workspaceFolder}/../nodes/node0/key"
-            ]
-        },
-
         {
             "name": "geth node",
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${workspaceFolder}/src/github.com/ethereum/go-ethereum/cmd/geth",
+            "program": "${workspaceFolder}/quorum/cmd/geth",
             "env": { "PRIVATE_CONFIG":"ignore"},
             "args": [
                 "--networkid", "53456",
@@ -72,49 +57,6 @@
                 "--wsorigins", "*", "--wsaddr", "0.0.0.0",
                 "--verbosity", "5", "--vmodule", "p2p/*=5"
             ]
-        },
-        {
-            "name": "geth rrr genesis",
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "preLaunchTask": "reset genesis",
-            "program": "${workspaceFolder}/src/github.com/ethereum/go-ethereum/cmd/geth",
-            "env": { "PRIVATE_CONFIG":"ignore"},
-            "args": [
-                "--datadir", "${workspaceFolder}/../nodes/node0/data",
-                "--rrr.candidates", "6",
-                "--rrr.endorsers", "101",
-                "init",
-                "${workspaceFolder}/../nodes/node0/genesis.json"
-            ]
-        },
-        {
-            "name": "geth dumpconfig",
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "program": "${workspaceFolder}/src/github.com/ethereum/go-ethereum/cmd/geth",
-            "env": { "PRIVATE_CONFIG":"ignore"},
-            "args": [
-                "--datadir", "${workspaceFolder}/nodes/node0/data",
-                "--rrr.candidates", "6",
-                "--rrr.endorsers", "101",
-                "--gcmode", "archive",
-                "--syncmode", "full",
-                "--verbosity", "3",
-                "--networkid", "99",
-                "--miner.gastarget", "3000000000",
-                "--rpc",
-                "--rpccorsdomain", "*",
-                "--rpcvhosts", "*",
-                "--rpcaddr", "0.0.0.0",
-                "--ws",
-                "--wsorigins", "*",
-                "--wsaddr", "0.0.0.0",
-                "--rpcapi", "admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum",
-                "dumpconfig"
-            ]
         }
-    ]
+      ]
 }

@@ -22,39 +22,15 @@ options:
     default:
       command: echo ${workdir}/nodes
 
-  gopath:
-    environment: GOPATH
+  quorumdir:
     default:
-      command: echo ${workdir}/gopath
+      command: echo ${workdir}/quorum
 
   geth:
     default: "go run github.com/ethereum/go-ethereum/cmd/geth"
 
 tasks:
 
-
-  copy-static:
-    usage: "copy the current static-nodes.json into all the node directories (unconditionaly)"
-    options:
-      start:
-        short: "s"
-        default: "0"
-      end:
-        short: "e"
-        default: "14"
-
-    run:
-      - command:
-          exec: |
-            set -e
-
-            RRR_DIR=$(pwd)
-
-            cd ${workdir}
-
-            for n in $(seq ${start} ${end}); do
-              cp -v $RRR_DIR/static-nodes.json ${nodesdir}/node${n}/data/geth/
-            done
 
   init-all:
     usage: "genesis for all nodes in range [start - end]"
@@ -94,9 +70,7 @@ tasks:
       - command:
           exec: |
             set -e
-            cd ${workdir}
-            export GOPATH=${gopath}
-
+            cd ${quorumdir}
             for n in $(seq ${start} ${end}); do
               ${geth} removedb --datadir ${nodesdir}/node${n}/data
             done
@@ -123,7 +97,7 @@ tasks:
             done
 
   alphas:
-    usage: "generate a range of keys"
+    usage: "generate the alpha contributions for the genesis vrf seed"
     options:
       start:
         short: "s"
@@ -173,64 +147,18 @@ tasks:
           exec: |
             set -e
 
-            export GOPATH=${gopath}
-
             NODES_DIR=${nodesdir}
 
-            if ${force}; then echo "force deleting $(pwd)/alpha-contrib.json"; rm -f $(pwd)/alpha-contrib.json; fi
-            if ${force}; then echo "force deleting $(pwd)/static-nodes.json"; rm -f $(pwd)/static-nodes.json; fi
-            [ -f $(pwd)/static-nodes.json ] && echo "$(pwd)/static-nodes.json exists, -f to force delete" && exit 1
-            [ -f $(pwd)/alpha-contrib.json ] && echo "$(pwd)/alpha-contrib.json exists, -f to force delete" && exit 1
-
-            endend=$((${end} - 1))
-
-            # go-ethereum's support for parsing enode urls (which we use for
-            # convenience) also, perplexingly, resolves the dns names at the
-            # time it parses the url. For docker compose setup, and for cluster
-            # setup, this is quite inconvenient - so we generate two 'static'
-            # node configuration files: one so that we can generate the extra
-            # data and another that we actually use. Only the host names are
-            # different and this does not affect the extraData
-            #
-            rm -rf static-nodes.json static-nodes-loopback.json
-
-            echo "[" | tee -a static-nodes-loopback.json
-            for n in $(seq ${start} ${endend}); do
-              printf "\"enode://$(cat ${nodesdir}/node${n}/enode)@127.0.0.1:7200\",\n" | tee -a static-nodes-loopback.json
-            done
-            printf "\"enode://$(cat ${nodesdir}/node${end}/enode)@127.0.0.1:7200\"\n" | tee -a static-nodes-loopback.json
-            echo "]" | tee -a static-nodes-loopback.json
-
-            hoststem=node
-            hoststem=${staticprefix}
-
-            echo "[" | tee -a static-nodes.json
-            for n in $(seq ${start} ${endend}); do
-              sub=${n}
-              sub=$((${staticoffset} + ${n}))
-              printf "\"enode://$(cat ${nodesdir}/node${n}/enode)@${hoststem}${sub}:7200\",\n" | tee -a static-nodes.json
-            done
-            sub=$((${staticoffset} + ${end}))
-            printf "\"enode://$(cat ${nodesdir}/node${end}/enode)@${hoststem}${sub}:7200\"\n" | tee -a static-nodes.json
-            echo "]" | tee -a static-nodes.json
-
-
-            echo "{" | tee -a alpha-contrib.json
-            for n in $(seq ${start} ${endend}); do
-              printf "\"0x$(cat ${nodesdir}/node${n}/enode)\":" | tee -a alpha-contrib.json
-              printf "$(cat ${nodesdir}/node${n}/alpha.json),\n"  | tee -a alpha-contrib.json
+            ALPHAS=""
+            for n in $(seq ${start} ${end}); do
+              ALPHAS="$ALPHAS ${nodesdir}/node${n}/alpha.json"
             done
 
-            printf "\"0x$(cat ${nodesdir}/node${end}/enode)\":" | tee -a alpha-contrib.json
-            printf "$(cat ${nodesdir}/node${end}/alpha.json)\n"  | tee -a alpha-contrib.json
-            echo "}" | tee -a alpha-contrib.json
+            cd ${workdir}/go-rrr/tools
 
-            # attempts to resolve the node's and that doesn't work out side of
-            # compose
-            go run github.com/ethereum/go-ethereum/cmd/rrr genextra \
+            go run cmd/rrrctl/main.go genextra \
               --showids --datadir ${node0dir} \
-                --alpha-contrib $(pwd)/alpha-contrib.json \
-                $(pwd)/static-nodes-loopback.json
+                $ALPHAS
 
 
   genesis:
@@ -259,9 +187,8 @@ tasks:
           exec: |
             set -e
 
-            cd ${workdir}
-            export GOPATH=${gopath}
             DATA_DIR=${datadir}
+            cd ${quorumdir}
 
             if ${force}; then echo "force deleting: ${DATA_DIR}"; rm -rf ${DATA_DIR}; fi
 
@@ -298,12 +225,9 @@ tasks:
           exec: |
             set -e
 
-            cd ${workdir}
+            cd ${quorumdir}
 
-            export GOPATH=${gopath}
             NODES_DIR=${nodesdir}
-
-            export GOPATH=$GOPATH
 
             if [[ "${key}" != "/dev/stdout" ]] || [[ "${enode}" != "/dev/stdout" ]]; then
               [ -n "${node}" ] && NODE_DIR="$NODES_DIR/node${node}" || NODE_DIR="$NODES_DIR/node0"
@@ -321,6 +245,7 @@ tasks:
 
             KEY=$(go run github.com/ethereum/go-ethereum/cmd/bootnode --genkey /dev/stdout)
             ENODE=$(echo $KEY | go run github.com/ethereum/go-ethereum/cmd/bootnode --nodekey /dev/stdin --writeaddress)
+
             echo $KEY > ${key} && echo "wrote: ${key}"
             echo $ENODE > ${enode} && echo "wrote: ${enode}"
 
@@ -352,9 +277,8 @@ tasks:
             # This nodes contribution to the genesis seed alpha
             alpha = secrets.token_bytes(32)
             sig = key.sign_recoverable(alpha, hasher=None)
-            print(len(sig))
             if "${json}" != "false":
-              print(f'{{"alpha": "0x{alpha.hex()}", "sig": "0x{sig.hex()}"}}')
+              print(f'{{"nodeid":"0x{nodeid.hex()}", "alpha": "0x{alpha.hex()}", "sig": "0x{sig.hex()}"}}')
             else:
               print(f"0x{rawpub.hex()} 0x{alpha.hex()} 0x{sig.hex()}")
             PYEND

@@ -1,9 +1,7 @@
 {
-    "go.gopath": "${workspaceFolder}",
     "go.inferGopath": false,
     "go.autocompleteUnimportedPackages": true,
     "go.delveConfig": {
-
 
         "dlvLoadConfig": {
             "followPointers": true,
