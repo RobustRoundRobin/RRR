@@ -31,13 +31,27 @@ options:
 name: rrrdev
 tasks:
 
+  prebuild:
+    run:
+      - command:
+          exec: |
+            # can't support arbitrary workdir
+            cp dotdockerignore ../buildcontext
+
   build:
     run:
       - command:
           exec: |
             set -e
+            mkdir -p ${workdir}/buildcontext
+            rsync -a ${workdir}/quorum ${workdir}/buildcontext
+            rsync -a ${workdir}/go-rrr ${workdir}/buildcontext
+            cp buildcontext/.dockerignore ${workdir}/buildcontext/.dockerignore
+            cp buildcontext/Dockerfile ${workdir}/buildcontext/
+            cp buildcontext/skaffold.yaml ${workdir}/buildcontext/
+
+            cd ${workdir}/buildcontext
             export SKAFFOLD_DEFAULT_REPO=""
-            cd ${workdir}/devclutter
             skaffold build -t latest
 
   rawtx:

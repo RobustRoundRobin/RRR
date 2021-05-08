@@ -1,0 +1,11 @@
+# skaffold build -t latest -d ""
+apiVersion: skaffold/v2beta10
+kind: Config
+build:
+  local:
+    push: false
+    concurrency: 8
+    useBuildkit: true
+  artifacts:
+    - image: geth-rrr
+      context: .

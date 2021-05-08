@@ -1,0 +1,28 @@
+# prebuild copies this into the build context dir. which by default is the
+# directory containing this repo clone. none of this is ideal
+.DS_Store/
+asside/
+nodes/
+devclutter/
+vscode/
+
+go-rrr/
+!go-rrr/consensus/
+# secp256k1suite is used by tools
+!go-rrr/secp256k1suite/
+!go-rrr/tools/
+
+
+quorum/**/*_test.go
+quorum/**/*.pdf
+quorum/**/*.png
+
+quorum/.git*
+quorum/**/*_test.go
+quorum/**/*.pdf
+quorum/**/*.png
+quorum/docs
+quorum/build/_workspace
+quorum/build/_bin
+quorum/tests/testdata
+quorum/accounts/keystore/testdata
