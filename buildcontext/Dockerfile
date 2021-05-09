@@ -12,7 +12,6 @@ FROM golang:1.15.5-alpine as builder
 RUN apk add --no-cache make gcc musl-dev linux-headers git
 ADD quorum /build/quorum
 ADD go-rrr /build/go-rrr
-RUN find /build -type d
 
 ENV GOBIN=/go/bin
 

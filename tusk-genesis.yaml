@@ -118,9 +118,64 @@ tasks:
               echo "Wrote $NODES_DIR/node${n}/alpha.json"
             done
 
+  gendoc:
+    usage: "create a genesis document from a template doc and alpha contributions from indexed node folders"
+    options:
+      account:
+        usage: "the wallet to allocate the genesis balance to - suggest you change the default!"
+        short: "w"
+        default: "0x5b38ab0d3a31efeffd3a3ac88421816ca227432c"
+      balance: 
+        usage: "The balance to allocate to the genesis-account"
+        default: "1000000000000000000000000000"
+      template:
+        usage: "template file to use. by default genesis.json from this repo is used"
+        short: "g"
+        default: ""
+      start:
+        short: "s"
+        default: "0"
+      end:
+        short: "e"
+        default: "14"
+    run:
+      - command:
+          exec: |
+            set -e
+
+            export EXTRADATA=$(tusk -q -f $(pwd)/tusk-genesis.yaml extra --workdir ${workdir} -s ${start} -e ${end})
+
+            cat <<PYEND | python3
+            import os
+            import json
+            from pathlib import Path
+            templatefile = "${template}"
+            if not templatefile:
+                templatefile = Path("genesis.json").resolve()
+            else:
+                templatefile = Path("${workdir}").joinpath(templatefile)
+
+            o = json.load(open(templatefile))
+            try:
+                del o["alloc"]["0x0000000000000000000000000000000000000000"]
+            except KeyError:
+                pass
+            o["alloc"]["${account}"] = dict(balance="${balance}")
+
+            extraData = os.environ["EXTRADATA"]
+            if not extraData.startswith("0x"):
+                extraData = "0x" + extraData
+            o["extraData"] = extraData
+            print(json.dumps(o, indent=2, sort_keys=True))
+            PYEND
+
+
   extra:
     usage: "generate the extradata hex string for the genesi document"
     options:
+      showids:
+        short: "i"
+        type: bool
       start:
         short: "s"
         default: "0"
@@ -128,24 +183,13 @@ tasks:
         short: "e"
         default: "14"
 
-      staticip:
-        type: bool
-        default: false
-      staticoffset:
-        type: int
-        default: 10
-      staticprefix:
-        # 172.19.0.first + ${start, end}
-        default: "172.19.0."
-      force:
-        usage: "Force delete of existing datadir"
-        type: bool
-        short: "f"
-
     run:
       - command:
           exec: |
             set -e
+
+            SHOWIDS=""
+            ${showids} && SHOWIDS="--showids"
 
             NODES_DIR=${nodesdir}
 
@@ -157,8 +201,7 @@ tasks:
             cd ${workdir}/go-rrr/tools
 
             go run cmd/rrrctl/main.go genextra \
-              --showids --datadir ${node0dir} \
-                $ALPHAS
+              ${SHOWIDS} --datadir ${node0dir} $ALPHAS
 
 
   genesis:

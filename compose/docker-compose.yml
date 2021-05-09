@@ -152,8 +152,8 @@ services:
   #   node-defaults assumes the image referenced by x-node-defaults has been
   #   built.
   node0:
-    << : *node-debug
-    # << : *node-defaults
+    # << : *node-debug
+    << : *node-defaults
     #environment:
     #  << : *node-env-defaults
     #  NAT_OPTS: "--nat=extip:${RRR_BOOTNODE_IP}"
@@ -174,6 +174,7 @@ services:
 
   node3:
     << : *node-defaults
+    # << : *node-debug
     working_dir: /nodes/node3
 
   # The tactic of using 'go run' so that it is fast to iterate code changes

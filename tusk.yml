@@ -7,11 +7,6 @@ options:
       The common root for everything we need. All defaults are relative to this
     environment: PWD
 
-  gopath:
-    environment: GOPATH
-    default:
-      command: echo ${workdir}/gopath
-
   node:
     default: "0"
     short: "n"

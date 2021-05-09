@@ -433,58 +433,101 @@ maintained at all times with entries sorted back -> front oldest -> youngest
 
 #### accumulateActive
 
-Record activity of all blocks until we reach the genesis block or until we
-reach a block we have recorded already. We are traversing 'youngest' block to
-'oldest'. We use youngestKnown (at the start of the traversal) as our marker
-and add each identity we see after it. This preserves the overall oldest ->
-youngest ordering in activeSelection.
+Record activity of all blocks until we reach the genesis block or until we reach
+a block we have recorded already. We are traversing 'youngest' block to
+'oldest'. We use youngestKnown (at the start of the traversal) as our marker and
+add each identity we see just infront (younger) than it. Since each subsequent
+identity is 'older' than the previous, this preserves the overall front -> back,
+youngest -> oldest ordering in activeSelection.
 
-For example: Given a genesis block with `[ia, ib, ic]` and `head == block 2`,
-where no new identities are enrolled in `block 2` or `block 1`, and where
-`ib` minted `block 2`, and `ia` minted `block 1`. We start at block 2 and
-traverse backwards:
+For example: Given a genesis block with the enrolments `[ia, ib, ic]` and where
+where `ib` minted `block 2`, and `ia` minted `block 1`, We start with `head ==
+block 2`. The active selection is primed with the genesis identies in the
+order of their enrolment in the genesis block.
 
-    A=   [ia, ib, ic] - from genesis
-    yk -----------^
-    A=   [ia, ic, ib] - ib is moved 'after' ic, becoming the youngest identity
-    yk -------^
-    A=   [ic, ia, ib] - ia is moved 'after' ic, becoming the *second* youngest identity
+    [ic, ib, ia]
+
+We note the youngest known at start (Syk) at the start of the pass as the end of the
+currently empty set:
+
+        [ic, ib, ia]
+    Syk -^
+
+We see that `ib` minted `block 2` and place its identity at the position imediately younger than `Syk`:
+
+        [ib, ic, ia]
     yk ---^
+    Syk -----^
 
-Now consider the more general case where each `block Bn`, introduces
-enrolments `En [age, age, ..., age]`:
+We advance to `block 1` and see that `ia` minted `block 1` and place its identity at the position imediately younger than `Syk`:
+
+        [ib, ia, ic]
+    yk --^
+    Syk ---------^
+
+Finally we reach the genesis block which was also minted by ia. We need to
+notice that we have found a younger position for `ia` and not move it again:
+
+        [ib, ia, ic]
+    yk --^
+    Syk ---------^
+
+Now, the size of the active selection is fixed regardless of how many identities
+are enroled and have been seen. This means the 'front' may be empty. So at the
+end of the accumulation we take note of the youngest known. This is the first
+occupied slot in the fixed storage allocation.
+
+Now consider the more general case where each `block Bn`, introduces enrolments
+`En [age, age, ..., age]` - so the sealer and the enrolments must be inserted
+into the ordering:
 
     E0 = [0, 1, 2]
     E1 = [3, 4, 5]
     E2 = [6, 7, 8]
 
-accumulateActive sees the blocks in the order `E2, E1, E0`. By visiting each
-enrolment in each block in reverse, eg for `E2 8, 7, 6`, we can trivially
-ensure the list is maintained in age order by always inserting at the
-'oldest' position:
+accumulateActive sees the blocks in the order `E2, E1, E0`. The sealer is listed
+first followed by the identities it enrols.  enrolments are listed oldest ->
+youngest (relative to each other). We need to pick a relative age order for
+identities enroled in a block. As the active selection is youngest -> oldest, to
+maintain the set in age order we need to reverse them as we add them.
 
-          []
-    E2 => [8]
-          [7, 8]
-          [6, 7, 8]
-    E1 => [5, 6, 7, 8]
-          [4, 5, 6, 7, 8]
-          [3, 4, 5, 6, 7, 8]
-    E0 => [0, 1, 2, 3, 4, 5, 6, 7, 8]
+Eg for `E2 6, 7, 8`, the insertion order is `[8, 7, 6]`. We can trivially ensure
+the list is maintained in age order by enumerating the enrolments in reverse and
+always inserting just before the youngest known at start (Syk) position.:
 
+             [] Syk
+    E2 =>    [8] Syk
+             [8, 7] Syk
+             [8, 7, 6] Syk
+    E1 =>    [8, 7, 6, 5] Syk
+             [8, 7, 6, 5, 4] Syk
+             [8, 7, 6, 5, 4, 3] Syk
+    E0 =>    [8, 7, 6, 5, 4, 3, 2] Syk
+             [8, 7, 6, 5, 4, 3, 2, 1] Syk
+             [8, 7, 6, 5, 4, 3, 2, 1, 0] Syk
 
-Finally, accumulateActive remembers the last block it saw. By assuming it
-always sees blocs in consecutive ascending order it can define the 'oldest'
-possition as the position *after* the last block it processed in the previous
-round. So we end up with:
+   Youngest --^ (most recently active)
 
-    E0 => [ ..., fence, 0, 1, 2, 3, 4, 5, 6, 7, 8]
+Finally, accumulateActive remembers the last block it saw. By assuming it always
+sees blocs in consecutive descending order it can define the 'oldest' position
+as the position *after* the last block it processed in the previous round. So we
+end up with:
 
-And fence is set to the youngest known at the end of the previous round,
-which will be, by the above assumption, be older than all the identities it
-is about to enrol. Where this assumption fails - a condition we can cheaply
-detect - we can recover by completely (or partially) re-processing HEAD - Ta
-worth of blocks.
+    E3 = [9, 10, 11]
+    E3 => [8, 7, 6, 5, 4, 3, 2, 1, 0 ]
+    Syk ---^
+          [11, 8, 7, 6, 5, 4, 3, 2, 1, 0 ]
+    Syk -------^
+          [11, 10, 8, 7, 6, 5, 4, 3, 2, 1, 0 ]
+    Syk -----------^
+          [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 ]
+    Syk --------------^
+
+Syk is effectively a fence. And is always initialised to the youngest known at
+the end of the previous round, which will be, by the above assumption, be older
+than all the identities it is about to enrol. Where this assumption fails - a
+condition we can cheaply detect - we can recover by completely (or partially)
+re-processing HEAD - Ta worth of blocks.
 
 #### refreshAge
 
@@ -504,24 +547,6 @@ In geth, when mining, the confirmation of a NewChainHead imediately
 results a new 'work' request being issued. In rrr (as in IBFT) this is where
 we hook in end of round/start of new round
 
-
-### static nodes
-
-Initial nodes need to be included in the genesis block extraData. We provide a
-utility subcommand for geth which creates the appropriate extraData for the
-genesis.json config file. After genesis, a new node is introduced by making a
-request to an existing node and then waiting for that request to be confirmed
-by the consensus engine.
-
-If boot nodes are being used instead, the initial boot nodes will need to be
-similarly in the genesis block. The easiest way to do that is to list them in a
-static-nodes.json and generate the extraData for genesis as above. The
---bootnodes options at startup can then be used as normal. In this scenario the
-static-nodes.json is just a way to configure the genesis extraData and can be
-discared after that is done.
-
-On startup geths p2p engine populates its view of 'localnodes' to include those
-declared in static
 ### Geth IBFT 'new chain' / warmup
 
 For orientation with the IBFT implementation it helps to follow what happens

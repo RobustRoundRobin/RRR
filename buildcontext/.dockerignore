@@ -1,6 +1,8 @@
 # prebuild copies this into the build context dir. which by default is the
 # directory containing this repo clone. none of this is ideal
 .DS_Store/
+Dockerfile
+Dockerfile-rrrctl
 asside/
 nodes/
 devclutter/

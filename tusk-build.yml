@@ -9,6 +9,11 @@ options:
 # Runes for building things
 tasks:
 
+  all:
+    run:
+      - task: test
+      - task: images
+
   images:
     run:
       - command:
@@ -16,9 +21,11 @@ tasks:
             set -e
             [ ! -d ${workdir}/quorum ] && echo "RobustRoundRobin/quorum git clone missing" && exit 1
             [ ! -d ${workdir}/go-rrr ] && echo "RobustRoundRobin/go-rrr git clone missing" && exit 1
+
             mkdir -p ${workdir}/buildcontext
             rsync -a ${workdir}/quorum ${workdir}/buildcontext
             rsync -a ${workdir}/go-rrr ${workdir}/buildcontext
+
             cp buildcontext/.dockerignore ${workdir}/buildcontext/.dockerignore
             cp buildcontext/Dockerfile* ${workdir}/buildcontext/
             cp buildcontext/skaffold.yaml ${workdir}/buildcontext/
@@ -26,3 +33,11 @@ tasks:
             cd ${workdir}/buildcontext
             export SKAFFOLD_DEFAULT_REPO=""
             skaffold build -t latest
+
+  test:
+    run:
+      - command:
+          exec: |
+            set -e
+            cd ../go-rrr/tools
+            go test -timeout 300s -v github.com/RobustRoundRobin/go-rrr/tools
