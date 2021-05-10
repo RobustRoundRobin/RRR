@@ -1,12 +1,14 @@
+
 variable "gcp_project_id" {
-    type = string
-    default = "fetlar"
+  type = string
 }
+
 output "gcp_project_id" { value = var.gcp_project_id }
+
 variable "gcp_project_name" {
     type = string
-    default = "fetlar"
 }
+
 output "gcp_project_name" { value = var.gcp_project_name }
 
 variable "gcp_project_region" {

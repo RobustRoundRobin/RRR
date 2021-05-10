@@ -1,0 +1,12 @@
+.git/
+.terraform/
+tf/fetlar/cluster/.terraform
+tf/fetlar/ledger/.terraform
+.*
+compose/
+buildcontext/
+credentials/
+go/
+nodes/
+truffle/
+vscode/

@@ -6,7 +6,7 @@ terraform {
   backend "remote" {
     organization = "robustroundrobin"
     workspaces {
-      name = "fetlar"
+      name = "fetlar-cluster"
     }
   }
 }
