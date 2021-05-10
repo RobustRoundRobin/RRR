@@ -72,7 +72,7 @@ module "cluster" {
       # Can make this !preemptible for reliability but for development its not worth it
       preemptible        = true
       auto_repair        = true
-      auto_upgrade       = false
+      auto_upgrade       = true
       disk_size_gb       = 10
       disk_type          = "pd-standard"
       image_type         = "COS"
