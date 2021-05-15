@@ -1,0 +1,33 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+configMapGenerator:
+- name: rrrnet-opts
+  # These options are shared across all nodes.
+  literals:
+  - NETWORKID=53456
+  # RRR_OPTS It is critical (for efficient operation) that all nodes use the
+  # same rrr consensus options. Using different options is effectively
+  # 'byzantine' behaviour.  In future these options will likely go in the
+  # genesis doc
+  - RRR_OPTS=--rrr.nc 2 --rrr.ne 7 --rrr.q 4 --rrr.ta 2000 --rrr.confirmphase 1500 --rrr.roundlength 3500
+  - RPC_APIS=--rpcapi rrr,admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum
+  - SYNC_OPTS=--gcmode archive --syncmode full
+  - PRIVATE_CONFIG=ignore
+  - P2P_PORT=7200
+  - WS_OPTS=--ws --wsport 8400 --wsorigins '*'
+  - >-
+    RPC_OPTS=
+    --allow-insecure-unlock
+    --rpc
+    --rpcaddr 0.0.0.0
+    --rpcport 8300
+    --rpccorsdomain '*'
+    --rpcvhosts '*'"
+  - >-
+    MINER_OPTS=
+    --miner.gastarget 3000000000
+    --mine --minerthreads 1
+  - LOG_OPTS=--vmodule consensus/*=7,miner/*=3,eth/*=2,p2p/*=2 --verbosity 3
+- name: genesis
+  files:
+  - genesis.json

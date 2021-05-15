@@ -1,0 +1,6 @@
+# This should be edited or used as starting point for your own
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+bases:
+  - ../base/kubeip
+  - ../base/rrrnet

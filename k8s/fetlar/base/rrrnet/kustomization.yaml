@@ -1,0 +1,14 @@
+# This should be edited or used as starting point for your own
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: queth
+bases:
+  - ../genesis
+  - ../bootnode
+
+images:
+  - name: eu.gcr.io/fetlar/geth-rrr
+    newName: eu.gcr.io/fetlar-1/geth-rrr
+
+resources:
+- namespace.yaml

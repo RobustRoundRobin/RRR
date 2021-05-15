@@ -1,0 +1,181 @@
+# https://github.com/rliebz/tusk
+interpreter: bash -c
+usage: "tasks for working with the fetlar gcp test cluster"
+name: rrr-fetlar
+options:
+  configdir:
+    usage: >
+      The common root for everything we need. All defaults are relative to this
+    environment: PWD
+  workdir:
+    usage: >
+      The directory containing all the repos we need go-rrr, quorum etc
+    default:
+      command: echo $(cd $(git rev-parse --show-toplevel)/..; pwd)
+
+tasks:
+
+  up:
+    options:
+      force:
+        usage: "add --force to apply"
+        short: "f"
+        type: bool
+    run:
+      - command:
+          exec: |
+            set -e
+            kubectl apply -k k8s/fetlar/ledger $(${force} && echo "--force")
+
+  down:
+    run:
+      - command:
+          exec: |
+            set -e
+            kubectl delete -k k8s/fetlar/ledger
+
+  images:
+    run:
+      - command:
+          exec: |
+            set -e
+            [ ! -d ${workdir}/quorum ] && echo "RobustRoundRobin/quorum git clone missing" && exit 1
+            [ ! -d ${workdir}/go-rrr ] && echo "RobustRoundRobin/go-rrr git clone missing" && exit 1
+
+            mkdir -p ${workdir}/buildcontext
+            rsync -a ${workdir}/quorum ${workdir}/buildcontext
+            rsync -a ${workdir}/go-rrr ${workdir}/buildcontext
+
+            cp buildcontext/.dockerignore ${workdir}/buildcontext/.dockerignore
+            cp buildcontext/Dockerfile* ${workdir}/buildcontext/
+            cp buildcontext/skaffold.yaml ${workdir}/buildcontext/
+
+            cd ${workdir}/buildcontext
+            export SKAFFOLD_DEFAULT_REPO="eu.gcr.io/fetlar-1"
+            skaffold build -t fetlar-latest
+
+
+  deploygenesis:
+    usage: "update the network genesis parameters (IMPLIES CHAIN RESET or INIT)"
+    options:
+      end:
+        usage: "how many identities to enrole in genesis (up to the max you have deployed keys for)"
+        short: "e"
+        default: "12"
+    run:
+      - command:
+          exec: |
+            set -e
+            cd $(git rev-parse --show-toplevel)
+
+            pushd tf/fetlar/ledger
+            TFOUT_LEDGER=$(terraform output -json)
+            PROJECT=$(echo "$TFOUT_LEDGER" | jq -r .gcp_project_id.value)
+            BUCKET=$(echo "$TFOUT_LEDGER" | jq -r .cluster_bucket.value)
+            popd
+
+            tools/gcpblob.py -t "$TOKEN" -p "$PROJECT" -b $BUCKET \
+              post network-genesis/genesis.json \
+                --datafile <(tusk -q -f $(pwd)/tusk-fetlar.yml gendoc --workdir ${workdir} -s 0 -e ${end})
+
+  gendoc:
+    usage: "create a genesis document from a template doc and alpha contributions from indexed node folders"
+    options:
+      account:
+        usage: "the wallet to allocate the genesis balance to - suggest you change the default!"
+        short: "w"
+        default:
+          command: echo $(tools/gcpsecrets.sh getsecret -x qnode-0-wallet-address)
+      balance:
+        usage: "The balance to allocate to the genesis-account"
+        default: "1000000000000000000000000000"
+
+      template:
+        usage: "template file to use. by default genesis.json from this repo is used"
+        short: "g"
+        default: ""
+      start:
+        short: "s"
+        default: "0"
+      end:
+        short: "e"
+        default: "29"
+
+    run:
+      - command:
+          exec: |
+            set -e
+
+            export EXTRADATA=$(tusk -q -f $(pwd)/tusk-fetlar.yml extra --workdir ${workdir} -s ${start} -e ${end})
+
+            cat <<PYEND | python3
+            import os
+            import json
+            from pathlib import Path
+            templatefile = "${template}"
+            if not templatefile:
+                templatefile = Path("genesis.json").resolve()
+            else:
+                templatefile = Path("${workdir}").joinpath(templatefile)
+
+            o = json.load(open(templatefile))
+            try:
+                del o["alloc"]["0x0000000000000000000000000000000000000000"]
+            except KeyError:
+                pass
+            o["alloc"]["${account}"] = dict(balance="${balance}")
+
+            extraData = os.environ["EXTRADATA"]
+            if not extraData.startswith("0x"):
+                extraData = "0x" + extraData
+            o["extraData"] = extraData
+            print(json.dumps(o, indent=2, sort_keys=True))
+            PYEND
+
+  ensuresecrets:
+    options:
+      start:
+        short: "s"
+        default: "0"
+      end:
+        short: "e"
+        default: "29"
+
+    run:
+      - command:
+          exec: |
+
+            for i in $(seq ${start} ${end})
+            do
+              tools/gcpsecrets.sh nodekey qnode-$i-
+              tools/gcpsecrets.sh wallet qnode-$i-wallet-
+            done
+  extra:
+    usage: "Generate the extradata for genesis"
+    options:
+      start:
+        short: "s"
+        default: "0"
+      end:
+        short: "e"
+        default: "29"
+
+    run:
+      - command:
+          exec: |
+            KEY0=$(tools/gcpsecrets.sh getnodekey qnode-0-key)
+            ALPHA=""
+            for i in $(seq ${start} ${end})
+            do
+              rm -f alpha-$i.json
+
+
+              tools/gcpsecrets.sh signalpha qnode-$i-key > alpha-$i.json
+              echo $(cat alpha-$i.json) 1>&2
+              ALPHA="$ALPHA $(pwd)/alpha-$i.json"
+            done
+
+            cd ${workdir}/go-rrr/tools
+            go run cmd/rrrctl/main.go genextra \
+               --keyhex $KEY0 \
+               $ALPHA
