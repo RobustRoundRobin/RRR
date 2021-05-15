@@ -5,6 +5,7 @@ namespace: queth
 bases:
   - ../genesis
   - ../bootnode
+  - ../node
 
 images:
   - name: eu.gcr.io/fetlar/geth-rrr

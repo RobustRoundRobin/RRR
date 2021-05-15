@@ -27,7 +27,7 @@ configMapGenerator:
     MINER_OPTS=
     --miner.gastarget 3000000000
     --mine --minerthreads 1
-  - LOG_OPTS=--vmodule consensus/*=7,miner/*=3,eth/*=2,p2p/*=2 --verbosity 3
+  - LOG_OPTS=--vmodule consensus/*=7,miner/*=5,eth/*=2,p2p/*=2 --verbosity 3
 - name: genesis
   files:
   - genesis.json
