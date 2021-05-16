@@ -93,6 +93,20 @@ def get_secret(args, name):
     return secret.payload.data
 
 
+def cmd_delete_secrets(args):
+    """Delete (ireversably) the named secrets"""
+
+    creds, project = get_defaults(args)
+    c = sm.SecretManagerServiceClient(credentials=creds)
+    for name in args.names:
+        resourcename = f"projects/{project}/secrets/{name}"
+        try:
+            c.delete_secret(resourcename)
+            print(f"{resourcename} deleted")
+        except ge.NotFound:
+            print(f"{resourcename} not found")
+
+
 def cmd_create_wallet(args):
     """Create an ethereum wallet key"""
 
@@ -250,6 +264,10 @@ def run(args=None):
     p.add_argument("keyname")
     p.add_argument("-x", "--bin2hex", action="store_true")
     p.add_argument("-s", "--bin2str", action="store_true")
+
+    p = subcmd.add_parser("delete", help=cmd_delete_secrets.__doc__)
+    p.set_defaults(func=cmd_delete_secrets)
+    p.add_argument("names", nargs="+")
 
     p = subcmd.add_parser("nodekey", help=cmd_create_nodekey.__doc__)
     p.set_defaults(func=cmd_create_nodekey)

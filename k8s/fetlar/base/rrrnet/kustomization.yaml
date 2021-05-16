@@ -4,8 +4,8 @@ kind: Kustomization
 namespace: queth
 bases:
   - ../genesis
-  - ../bootnode
-  - ../node
+  - ../bootnodes
+  - ../genodes
 
 images:
   - name: eu.gcr.io/fetlar/geth-rrr

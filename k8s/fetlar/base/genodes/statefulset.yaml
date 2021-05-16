@@ -1,20 +1,18 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: bootnode
+  name: genode
   labels:
-    app.kubernetes.io/name: bootnode
+    app.kubernetes.io/name: genode
     app.kubernetes.io/part-of: rrrnet
 spec:
   selector:
     matchLabels:
-      app: bootnode
-  serviceName: bootnode
+      app: genode
+  serviceName: genode
+  podManagementPolicy: "Parallel"
 
-  # WARNING: Due to how we do the node anti afinity for the bootnodes, this
-  # requires at least this many VM nodes in the worker pool.
-  # SHOULD match the NUM_BOOTNODES env var for the geth container
-  replicas: 2
+  replicas: 28
   volumeClaimTemplates:
   - metadata:
       name: rrrnode-pv
@@ -26,7 +24,7 @@ spec:
   template:
     metadata:
       labels:
-        app: bootnode
+        app: genode
         # Pod template's label selector
         #skaffold.dev/run-id: static
         #app.kubernetes.io/managed-by: skaffold
@@ -42,17 +40,6 @@ spec:
                 operator: In
                 values:
                 - work-pool
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                topologyKey: "kubernetes.io/hostname"
-                labelSelector:
-                  matchExpressions:
-                    - key: "app"
-                      operator: In
-                      values:
-                      - bootnode
       serviceAccountName: quorum-node-sa
       terminationGracePeriodSeconds: 10
       volumes:
@@ -67,6 +54,13 @@ spec:
       - name: geth-rrr
         image: eu.gcr.io/fetlar/geth-rrr:fetlar-latest
         imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "800Mi"
+            cpu: "100m"
+          limits:
+            memory: "2G"
+            cpu: "1000m"
         volumeMounts:
           - name: rrrnode-pv
             mountPath: /var/lib/quorum
@@ -74,7 +68,6 @@ spec:
             mountPath: /etc/config/genesis
         env:
           - name: NUM_BOOTNODES
-            # SHOULD match spec.replicas
             value: "2"
           - name: POD_IP
             valueFrom:
@@ -136,26 +129,29 @@ spec:
           - -cx
           - |
             set -e
+            cd /var/lib/quorum/node
+
+            BOOTNODES=$(cat BOOTNODES)
 
             NAT_OPTS="--nat=none"
-            DISCOVERY_OPTS="--netrestrict=${POD_IP}/16"
+            DISCOVERY_OPTS="--netrestrict=${POD_IP}/16 --bootnodes=${BOOTNODES}"
 
             # this is the genesis account
             ETHERBASE="b5983bf72a55b48d302638da5292f60f93597d96"
 
-            cd /var/lib/quorum/node
             PRIVATE_CONFIG=ignore geth \
                 ${RRR_OPTS} \
                 --networkid ${NETWORKID} \
+                ${METRICS_OPTS} \
                 ${NAT_OPTS} ${DISCOVERY_OPTS} \
                 --port ${P2P_PORT} \
                 --nodekey /var/lib/quorum/node/geth/nodekey \
                 --datadir /var/lib/quorum/node \
                 --gcmode archive  --syncmode full \
                 --nousb \
-                --rpcapi "rrr,admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum" \
                 ${MINER_OPTS} --miner.etherbase ${ETHERBASE} \
                 ${RPC_OPTS} \
+                ${RPC_APIS} \
                 ${LOG_OPTS}
 
       initContainers:
@@ -168,6 +164,13 @@ spec:
           - name: genesis
             mountPath: /etc/config/genesis
         env:
+          - name: NUM_BOOTNODES
+            value: "2"
+          - name: P2P_PORT
+            valueFrom:
+              configMapKeyRef:
+                name: rrrnet-opts
+                key: P2P_PORT
           - name: BUCKET
             value: "fetlar-1-27c36a65-76c4-2cd2-7ade-29e63eb492db"
           - name: POD_NAME
@@ -190,11 +193,14 @@ spec:
             import requests, dns.resolver, dns.exception
 
             DATA_DIR = "/var/lib/quorum/node"
-
-            GETHDIR = pathlib.Path(f"{DATA_DIR}/geth")
-
             URL_METADATA = "http://metadata.google.internal/computeMetadata"
             URL_SECRETS = "https://secretmanager.googleapis.com"
+
+            NUM_BOOTNODES = int(os.environ["NUM_BOOTNODES"])
+            P2P_PORT = int(os.environ["P2P_PORT"])
+            BUCKET = os.environ["BUCKET"]
+
+            GETHDIR = pathlib.Path(f"{DATA_DIR}/geth")
 
             PROJECT_ID = requests.get(
                 f"{URL_METADATA}/v1/project/project-id",
@@ -205,24 +211,27 @@ spec:
                 headers={"Metadata-Flavor": "Google"}).json()["access_token"]
 
             HOSTNAME = socket.gethostname()
-            PODIP = socket.gethostbyname(HOSTNAME)
             # this will break with ValueError on a non bootnode
             POD_INDEX = int(HOSTNAME.rsplit("-", 1)[-1])
+            KEY_INDEX = NUM_BOOTNODES + POD_INDEX
 
-            def init():
+            def init(token, projectid, keyindex, datadir):
+
+                URL_SECRETS = "https://secretmanager.googleapis.com"
+
                 # genesis identities will need careful handling. bootnodes will
                 # always be genesis identities.
                 if GETHDIR.joinpath("LOCK").is_file():
-                    print(f"geth LOCK file exists assuming init ok: {DATA_DIR}/geth/LOCK")
+                    print(f"geth LOCK file exists assuming init ok: {datadir}/geth/LOCK")
                     return True
 
-                keyname = f"qnode-{POD_INDEX}-key"
-                pubname = f"qnode-{POD_INDEX}-enode"
+                keyname = f"qnode-{keyindex}-key"
+                pubname = f"qnode-{keyindex}-enode"
                 print(f"keyname: {keyname}, pubname: {pubname}")
 
                 resp = requests.get(
-                    f"{URL_SECRETS}/v1/projects/{PROJECT_ID}/secrets/{keyname}/versions/latest:access",
-                    headers={"Authorization": f"Bearer {TOKEN}"})
+                    f"{URL_SECRETS}/v1/projects/{projectid}/secrets/{keyname}/versions/latest:access",
+                    headers={"Authorization": f"Bearer {token}"})
 
                 if not resp:
                     print(f"failed getting private key: {str(resp)}", file=sys.stderr)
@@ -230,8 +239,8 @@ spec:
 
                 key = base64.b64decode(resp.json()["payload"]["data"]).decode()
                 resp = requests.get(
-                    f"{URL_SECRETS}/v1/projects/{PROJECT_ID}/secrets/{pubname}/versions/latest:access",
-                    headers={"Authorization": f"Bearer {TOKEN}"})
+                    f"{URL_SECRETS}/v1/projects/{projectid}/secrets/{pubname}/versions/latest:access",
+                    headers={"Authorization": f"Bearer {token}"})
 
                 if not resp:
                     print(f"failed getting public key (enode): {str(resp)}", file=sys.stderr)
@@ -241,22 +250,22 @@ spec:
 
                 # Make the directory so we can put the key in the place where geth
                 # expects it by default.
-                pathlib.Path(f"{DATA_DIR}/geth").mkdir(parents=True, exist_ok=True)
+                pathlib.Path(f"{datadir}/geth").mkdir(parents=True, exist_ok=True)
                 # if the key file exists and is not the same abort. operations will
                 # need to decide what to do with the disc data
-                with open(pathlib.Path(f"{DATA_DIR}/geth/nodekey"), "w") as keyfile:
+                with open(pathlib.Path(f"{datadir}/geth/nodekey"), "w") as keyfile:
                     keyfile.write(key)
 
                 subprocess.check_call(
-                    ["geth", "init", "--datadir", DATA_DIR, "/etc/config/genesis/genesis.json"])
+                    ["geth", "init", "--datadir", datadir, "/etc/config/genesis/genesis.json"])
 
                 # We only cache this so that we can set it in the --bootnodes geth
                 # option
-                with open(pathlib.Path(f"{DATA_DIR}/enode"), "w") as enodefile:
+                with open(pathlib.Path(f"{datadir}/enode"), "w") as enodefile:
                     enodefile.write(enode)
 
                 # paranoid check that the nodekey is as we expect
-                with open(pathlib.Path(f"{DATA_DIR}/geth/nodekey")) as keyfile:
+                with open(pathlib.Path(f"{datadir}/geth/nodekey")) as keyfile:
                     localkey = keyfile.read()
                     if localkey != key:
                         print("geth init overwrote the nodekey", file=sys.stderr)
@@ -264,38 +273,52 @@ spec:
                 print("geth init ok")
                 return True
 
-            if not init():
+            if not init(TOKEN, PROJECT_ID, KEY_INDEX, DATA_DIR):
                 sys.exit(1)
 
+            # Now we need to wait for at least one bootnode whose blob ip
+            # matches the dns ip
+            token = requests.get(
+                f"{URL_METADATA}/v1/instance/service-accounts/default/token",
+                headers={"Metadata-Flavor": "Google"}).json()["access_token"]
+
+            # Always prefer the ip from cluster dns. the public key is always taken from
+            # the blob as that will only change if we are re-creating the whole chain.
             bootips = dict()
             try:
                 ans = dns.resolver.resolve("bootnode.queth.svc.cluster.local", "a")
                 bootips = dict([(a.address, None) for a in ans])
+                if not ans:
+                    print(f"bootstrap nodes not available", file=sys.stderr)
+                    sys.exit(1)
             except dns.exception.DNSException as e:
                 print(
                     f"bootstrap nodes not available (will try any known seed nodes): {str(e)}",
                     file=sys.stderr)
+                sys.exit(1)
 
-            enode = None
+            bootnodes = []
 
-            # If this is a bootnode, put the current ip and enode in blob in a well known
-            # place.
-            if HOSTNAME.startswith("bootnode-"):
-                with open(f"{DATA_DIR}/enode") as enodefile:
-                    enode = enodefile.read()
-                    bootips[PODIP] = enode
+            for i in range(NUM_BOOTNODES):
+                objectname = f"bootnodes/bootnode-{i}-enode"
+                qs = f"https://storage.googleapis.com/{BUCKET}/{objectname}?alt=media"
+                resp = requests.get(qs, headers={"authorization": f"Bearer {token}"})
 
-                bucket = os.environ["BUCKET"]
-                qs = (
-                    f"https://storage.googleapis.com/upload/storage/v1/b/"
-                    f"{bucket}/o?uploadType=media&name=bootnodes/{HOSTNAME}-enode")
-                resp = requests.post(
-                    qs, data=json.dumps(dict(enode=enode, ip=PODIP)),
-                    headers={"authorization": f"Bearer {TOKEN}", "content-type": "application/json"})
-                if not(resp):
-                    sys.exit(1)
-                print(resp)
-            print(bootips)
+                if not resp:
+                    print(f"{objectname}: {str(resp)} {qs}")
+                    continue
+
+                j = resp.json()
+                ip, enode = j["ip"], j["enode"]
+                if ip not in bootips:
+                    print(f"stale ip from blob: {ip} for {enode}")
+                    continue
+                bootnodes.append((enode, ip))
+
+            if not len(bootnodes):
+                print("No bootnodes found, exiting")
+                sys.exit(1)
+            with open(f"{DATA_DIR}/BOOTNODES", "w") as f:
+                f.write(",".join([f"enode://{enode}@{ip}:{P2P_PORT}" for enode, ip in bootnodes]))
+            print(bootnodes)
             PYEND
-
-

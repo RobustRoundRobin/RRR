@@ -5,12 +5,14 @@ configMapGenerator:
   # These options are shared across all nodes.
   literals:
   - NETWORKID=53456
+  - >-
+    METRICS_OPTS=--metrics --pprof --pprof.addr 0.0.0.0 --pprof.port 9545
   # RRR_OPTS It is critical (for efficient operation) that all nodes use the
   # same rrr consensus options. Using different options is effectively
   # 'byzantine' behaviour.  In future these options will likely go in the
   # genesis doc
   - RRR_OPTS=--rrr.nc 2 --rrr.ne 7 --rrr.q 4 --rrr.ta 2000 --rrr.confirmphase 1500 --rrr.roundlength 3500
-  - RPC_APIS=--rpcapi rrr,admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum
+  - RPC_APIS=--rpcapi rrr,admin,eth,debug,miner,net,txpool,personal,web3
   - SYNC_OPTS=--gcmode archive --syncmode full
   - PRIVATE_CONFIG=ignore
   - P2P_PORT=7200
@@ -18,16 +20,16 @@ configMapGenerator:
   - >-
     RPC_OPTS=
     --allow-insecure-unlock
-    --rpc
-    --rpcaddr 0.0.0.0
-    --rpcport 8300
-    --rpccorsdomain '*'
-    --rpcvhosts '*'"
+    --http
+    --http.addr 0.0.0.0
+    --http.port 8300
+    --http.corsdomain '*'
+    --http.vhosts '*'"
   - >-
     MINER_OPTS=
     --miner.gastarget 3000000000
-    --mine --minerthreads 1
-  - LOG_OPTS=--vmodule consensus/*=7,miner/*=5,eth/*=2,p2p/*=2 --verbosity 3
+    --mine --miner.threads 1
+  - LOG_OPTS=--vmodule consensus/*=5,miner/*=2,eth/*=2,p2p/*=2 --verbosity 2
 - name: genesis
   files:
   - genesis.json

@@ -49,14 +49,6 @@ tasks:
             [ ! -f Dockerfile ] && ln -s $(pwd)/buildcontext/Dockerfile Dockerfile
             [ ! -f Dockerfile-rrrctl ] && ln -s $(pwd)/buildcontext/Dockerfile Dockerfile-rrrctl
 
-            #mkdir -p ${workdir}/buildcontext
-            #rsync -a ${workdir}/quorum ${workdir}/buildcontext
-            #rsync -a ${workdir}/go-rrr ${workdir}/buildcontext
-
-            #cp buildcontext/.dockerignore ${workdir}/buildcontext/.dockerignore
-            #cp buildcontext/Dockerfile* ${workdir}/buildcontext/
-            #cp buildcontext/skaffold.yaml ${workdir}/buildcontext/
-
             export SKAFFOLD_DEFAULT_REPO="eu.gcr.io/fetlar-1"
             skaffold build -t fetlar-latest
 
@@ -67,7 +59,7 @@ tasks:
       end:
         usage: "how many identities to enrole in genesis (up to the max you have deployed keys for)"
         short: "e"
-        default: "12"
+        default: "29"
     run:
       - command:
           exec: |
@@ -105,7 +97,7 @@ tasks:
         default: "0"
       end:
         short: "e"
-        default: "12"
+        default: "29"
 
     run:
       - command:
@@ -149,7 +141,7 @@ tasks:
         default: "0"
       end:
         short: "e"
-        default: "12"
+        default: "29"
 
     run:
       - command:
@@ -160,6 +152,28 @@ tasks:
               tools/gcpsecrets.sh nodekey qnode-$i-
               tools/gcpsecrets.sh wallet qnode-$i-wallet-
             done
+
+  deletesecrets:
+    options:
+      start:
+        short: "s"
+        default: "0"
+      end:
+        short: "e"
+        default: "29"
+
+    run:
+      - command:
+          exec: |
+
+            NAMES=""
+
+            for i in $(seq ${start} ${end})
+            do
+              NAMES="$NAMES qnode-$i-key qnode-$i-enode qnode-$i-wallet-key qnode-$i-wallet-pub qnode-$i-wallet-password qnode-$i-wallet-address"
+            done
+            tools/gcpsecrets.sh delete $NAMES
+
   extra:
     usage: "Generate the extradata for genesis"
     options:
@@ -168,7 +182,7 @@ tasks:
         default: "0"
       end:
         short: "e"
-        default: "12"
+        default: "29"
 
     run:
       - command:
