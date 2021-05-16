@@ -17,7 +17,7 @@ import argparse
 
 
 from google.auth._default import _CLOUD_SDK_CREDENTIALS_WARNING
-from clicommon import run_and_exit
+from .clicommon import run_and_exit
 
 GENERAL_CONNECTION_EXEPTIONS = (
     requests.exceptions.Timeout,

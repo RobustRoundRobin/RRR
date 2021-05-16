@@ -56,8 +56,8 @@ tasks:
               mkdir -p ${nodesdir}/node${n}/data/geth
             done
 
-  reset-all:
-    usage: "run geth removedb on all nodes"
+  all:
+    usage: "full reset and re-genesis, including key generation and alpha contribution"
     options:
       start:
         short: "s"
@@ -70,9 +70,30 @@ tasks:
       - command:
           exec: |
             set -e
-            cd ${quorumdir}
+
+            RRR_DIR=$(pwd)
+
+            cd ${workdir}
             for n in $(seq ${start} ${end}); do
-              ${geth} removedb --datadir ${nodesdir}/node${n}/data
+              rm -rf ${nodesdir}/node${n}
+            done
+
+            tusk -q -f $RRR_DIR/tusk-genesis.yaml keys \
+              --workdir ${workdir} \
+              --start ${start} --end ${end}
+
+            tusk -q -f $RRR_DIR/tusk-genesis.yaml alphas \
+              --workdir ${workdir} \
+              --start ${start} --end ${end}
+
+            tusk -q -f $RRR_DIR/tusk-genesis.yaml gendoc \
+              --workdir ${workdir} \
+              --start ${start} --end ${end} | tee ${nodesdir}/node0/genesis.json
+
+            for n in $(seq ${start} ${end}); do
+              tusk -q -f $RRR_DIR/tusk-genesis.yaml genesis \
+                --workdir ${workdir} \
+                --node ${n} --genesis ${nodesdir}/node0/genesis.json
             done
 
   keys:
@@ -286,8 +307,10 @@ tasks:
             fi
             [[ -f "${key}" || -f "${enode}" ]] && echo "key or enode exist: ${key}, ${enode}. -f to force delete" && exit 1
 
+            pushd ${quorumdir}
             KEY=$(go run github.com/ethereum/go-ethereum/cmd/bootnode --genkey /dev/stdout)
             ENODE=$(echo $KEY | go run github.com/ethereum/go-ethereum/cmd/bootnode --nodekey /dev/stdin --writeaddress)
+            popd
 
             echo $KEY > ${key} && echo "wrote: ${key}"
             echo $ENODE > ${enode} && echo "wrote: ${enode}"

@@ -42,15 +42,21 @@ tasks:
             [ ! -d ${workdir}/quorum ] && echo "RobustRoundRobin/quorum git clone missing" && exit 1
             [ ! -d ${workdir}/go-rrr ] && echo "RobustRoundRobin/go-rrr git clone missing" && exit 1
 
-            mkdir -p ${workdir}/buildcontext
-            rsync -a ${workdir}/quorum ${workdir}/buildcontext
-            rsync -a ${workdir}/go-rrr ${workdir}/buildcontext
+            RRR_DIR=$(pwd)
+            cd ${workdir}
+            [ ! -f skaffold.yaml ] && ln -s $(pwd)/buildcontext/skaffold.yaml skaffold.yaml
+            [ ! -f .dockerignore ] && ln -s $(pwd)/buildcontext/.dockeringore .dockerignore
+            [ ! -f Dockerfile ] && ln -s $(pwd)/buildcontext/Dockerfile Dockerfile
+            [ ! -f Dockerfile-rrrctl ] && ln -s $(pwd)/buildcontext/Dockerfile Dockerfile-rrrctl
 
-            cp buildcontext/.dockerignore ${workdir}/buildcontext/.dockerignore
-            cp buildcontext/Dockerfile* ${workdir}/buildcontext/
-            cp buildcontext/skaffold.yaml ${workdir}/buildcontext/
+            #mkdir -p ${workdir}/buildcontext
+            #rsync -a ${workdir}/quorum ${workdir}/buildcontext
+            #rsync -a ${workdir}/go-rrr ${workdir}/buildcontext
 
-            cd ${workdir}/buildcontext
+            #cp buildcontext/.dockerignore ${workdir}/buildcontext/.dockerignore
+            #cp buildcontext/Dockerfile* ${workdir}/buildcontext/
+            #cp buildcontext/skaffold.yaml ${workdir}/buildcontext/
+
             export SKAFFOLD_DEFAULT_REPO="eu.gcr.io/fetlar-1"
             skaffold build -t fetlar-latest
 
@@ -79,7 +85,7 @@ tasks:
                 --datafile <(tusk -q -f $(pwd)/tusk-fetlar.yml gendoc --workdir ${workdir} -s 0 -e ${end})
 
   gendoc:
-    usage: "create a genesis document from a template doc and alpha contributions from indexed node folders"
+    usage: "create a genesis document from a template doc and alpha contributions"
     options:
       account:
         usage: "the wallet to allocate the genesis balance to - suggest you change the default!"
@@ -99,14 +105,18 @@ tasks:
         default: "0"
       end:
         short: "e"
-        default: "29"
+        default: "12"
 
     run:
       - command:
           exec: |
             set -e
 
-            export EXTRADATA=$(tusk -q -f $(pwd)/tusk-fetlar.yml extra --workdir ${workdir} -s ${start} -e ${end})
+            export EXTRADATA=$(tusk -q -f $(pwd)/tusk-fetlar.yml \
+              extra \
+                --configdir ${configdir} \
+                --workdir ${workdir} \
+                -s ${start} -e ${end})
 
             cat <<PYEND | python3
             import os
@@ -139,7 +149,7 @@ tasks:
         default: "0"
       end:
         short: "e"
-        default: "29"
+        default: "12"
 
     run:
       - command:
@@ -158,7 +168,7 @@ tasks:
         default: "0"
       end:
         short: "e"
-        default: "29"
+        default: "12"
 
     run:
       - command:
@@ -170,9 +180,9 @@ tasks:
               rm -f alpha-$i.json
 
 
-              tools/gcpsecrets.sh signalpha qnode-$i-key > alpha-$i.json
-              echo $(cat alpha-$i.json) 1>&2
-              ALPHA="$ALPHA $(pwd)/alpha-$i.json"
+              tools/gcpsecrets.sh signalpha qnode-$i-key > ${configdir}/alpha-$i.json
+              echo $(cat ${configdir}/alpha-$i.json) 1>&2
+              ALPHA="$ALPHA ${configdir}/alpha-$i.json"
             done
 
             cd ${workdir}/go-rrr/tools

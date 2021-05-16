@@ -28,7 +28,7 @@ from google.auth._default import _CLOUD_SDK_CREDENTIALS_WARNING
 from google.api_core import exceptions as ge
 from google.cloud import secretmanager as sm
 
-from clicommon import run_and_exit
+from .clicommon import run_and_exit
 
 # macos, and possibly other hypervisor docker envs, don't like sharing /tmp
 SCRIPTDIR = Path(__file__).parent.resolve()
@@ -135,7 +135,7 @@ def cmd_create_wallet(args):
 def create_alpha(key):
     """generate gensis alpha contribution and sign it"""
 
-    key = coincurve.PrivateKey.from_hex(key[:-1])
+    key = coincurve.PrivateKey.from_hex(key)
     rawpub = coincurve.PublicKey.from_valid_secret(key.secret).format(compressed=False)
     nodeid = keccak_256(rawpub[1:]).digest()
     # This nodes contribution to the genesis seed alpha

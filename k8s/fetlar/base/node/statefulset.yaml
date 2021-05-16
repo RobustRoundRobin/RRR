@@ -11,7 +11,7 @@ spec:
       app: node
   serviceName: node
 
-  replicas: 1
+  replicas: 10
   volumeClaimTemplates:
   - metadata:
       name: rrrnode-pv

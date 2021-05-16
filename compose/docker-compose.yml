@@ -97,7 +97,7 @@ x-node-defaults:
   <<: *node-base
   environment:
     << : *node-env-defaults
-  image: geth-rrr:latest
+  image: eu.gcr.io/fetlar-1/geth-rrr:fetlar-latest
   volumes:
     # Defined in the .env file
     - ${RRR_NODE_ROOT}:/nodes
