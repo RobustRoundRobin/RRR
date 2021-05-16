@@ -1,0 +1,37 @@
+{
+  "cluster_bucket": {
+    "sensitive": false,
+    "type": "string",
+    "value": "fetlar-1-27c36a65-76c4-2cd2-7ade-29e63eb492db"
+  },
+  "cluster_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "kluster"
+  },
+  "cluster_workspace": {
+    "sensitive": false,
+    "type": "string",
+    "value": "fetlar-cluster"
+  },
+  "gcp_project_id": {
+    "sensitive": false,
+    "type": "string",
+    "value": "fetlar-1"
+  },
+  "gcp_project_region": {
+    "sensitive": false,
+    "type": "string",
+    "value": "europe-west2"
+  },
+  "gcp_project_zone": {
+    "sensitive": false,
+    "type": "string",
+    "value": "europe-west2-a"
+  },
+  "max_quorum_nodes": {
+    "sensitive": false,
+    "type": "number",
+    "value": 30
+  }
+}

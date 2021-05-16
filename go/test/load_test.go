@@ -25,8 +25,10 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-var NODE_ENDPOINT = "http://127.0.0.1:8545"
-var TESSERA_ENDPOINT = "http://127.0.0.1:9008"
+var NODE_ENDPOINT = "http://127.0.0.1:8300"
+
+// var TESSERA_ENDPOINT = "http://127.0.0.1:9008"
+var TESSERA_ENDPOINT = ""
 
 // Set to roughly the configured round length
 var expectedLatency = time.Second * 6
@@ -35,8 +37,9 @@ var failedRoundTolerance = 3
 
 var getSetAddABI = `[ { "constant": false, "inputs": [ { "internalType": "uint256", "name": "x", "type": "uint256" } ], "name": "add", "outputs": [], "payable": false, "stateMutability": "nonpayable", "type": "function" }, { "constant": false, "inputs": [ { "internalType": "uint256", "name": "x", "type": "uint256" } ], "name": "set", "outputs": [], "payable": false, "stateMutability": "nonpayable", "type": "function" }, { "constant": true, "inputs": [], "name": "get", "outputs": [ { "internalType": "uint256", "name": "retVal", "type": "uint256" } ], "payable": false, "stateMutability": "view", "type": "function" } ]`
 var getSetAddBin = "0x608060405234801561001057600080fd5b50610126806100206000396000f3fe6080604052348015600f57600080fd5b50600436106059576000357c0100000000000000000000000000000000000000000000000000000000900480631003e2d214605e57806360fe47b11460895780636d4ce63c1460b4575b600080fd5b608760048036036020811015607257600080fd5b810190808035906020019092919050505060d0565b005b60b260048036036020811015609d57600080fd5b810190808035906020019092919050505060de565b005b60ba60e8565b6040518082815260200191505060405180910390f35b806000540160008190555050565b8060008190555050565b6000805490509056fea265627a7a72315820c8bd9d7613946c0a0455d5dcd9528916cebe6d6599909a4b2527a8252b40d20564736f6c634300050b0032"
-var getSetAddAddrHex = "0x289aC6896B7AD90d5363bd84584AEd7D420cb2C5"
-var getSetAddPublicAddrHex = "0x3e4f15b878bdc3484082d3340a76922952945d55"
+
+// var getSetAddAddrHex = "0x289aC6896B7AD90d5363bd84584AEd7D420cb2C5"
+// var getSetAddPublicAddrHex = "0x3e4f15b878bdc3484082d3340a76922952945d55"
 var defaultGasLimit = uint64(60000)
 
 // TODOD: fetch these from the 3rdparty-api.
@@ -217,6 +220,9 @@ func adder(s *QuorumSuite, wg *sync.WaitGroup, first, last, rounds int, ethEndpo
 			s.auth[i].Nonce.Add(s.auth[i].Nonce, big1)
 			if check {
 				ok := checkReceipt(ethC, tx)
+				if !ok {
+					fmt.Println("!ok")
+				}
 				s.require.True(ok)
 			}
 		}
@@ -248,8 +254,11 @@ func (s *QuorumSuite) TestQuorum() {
 		s.auth[i].Nonce = big.NewInt(int64(nonce))
 	}
 
+	THREADS := 20
+	BATCH_LEN := 1
+	BATCH_PER_THREAD := 100
 	var wg sync.WaitGroup
-	for i := 0; i < 20; i++ {
+	for i := 0; i < THREADS; i++ {
 		// if we have multiple exposed nodes we can do this
 		// ethEndpoint := fmt.Sprintf("http://localhost:220%02d", i)
 		// tessEndpoint := fmt.Sprintf("http://localhost:90%02d", 8+i)
@@ -258,9 +267,12 @@ func (s *QuorumSuite) TestQuorum() {
 		tessEndpoint := TESSERA_ENDPOINT
 
 		wg.Add(1)
-		go adder(s, &wg, i, i+1, 100, ethEndpoint, tessEndpoint, false)
+		go adder(s, &wg, i, i+BATCH_LEN, BATCH_PER_THREAD, ethEndpoint, tessEndpoint, false)
 	}
 	wg.Wait()
+	ntx := THREADS * BATCH_LEN * BATCH_PER_THREAD
+	fmt.Printf("completed: %d\n", ntx)
+
 }
 func TestQuorum(t *testing.T) {
 	suite.Run(t, new(QuorumSuite))

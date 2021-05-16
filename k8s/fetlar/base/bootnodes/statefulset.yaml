@@ -1,0 +1,316 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: bootnode
+  labels:
+    app.kubernetes.io/name: bootnode
+    app.kubernetes.io/part-of: rrrnet
+spec:
+  selector:
+    matchLabels:
+      app: bootnode
+  serviceName: bootnode
+  podManagementPolicy: "Parallel"
+
+  # WARNING: Due to how we do the node anti afinity for the bootnodes, this
+  # requires at least this many VM nodes in the worker pool.
+  # SHOULD match the NUM_BOOTNODES env var for the geth container
+  replicas: 2
+  volumeClaimTemplates:
+  - metadata:
+      name: rrrnode-pv
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 4Gi
+  template:
+    metadata:
+      labels:
+        app: bootnode
+        # Pod template's label selector
+        #skaffold.dev/run-id: static
+        #app.kubernetes.io/managed-by: skaffold
+        app.kubernetes.io/part-of: rrrnet
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            # Node selector to put the workload on *any* worker pool node.
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: cloud.google.com/gke-nodepool
+                operator: In
+                values:
+                - work-pool
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: "kubernetes.io/hostname"
+                labelSelector:
+                  matchExpressions:
+                    - key: "app"
+                      operator: In
+                      values:
+                      - bootnode
+      serviceAccountName: quorum-node-sa
+      terminationGracePeriodSeconds: 10
+      volumes:
+        - name: rrrnet-opts
+          configMap:
+            name: rrrnet-opts
+        - name: genesis
+          configMap:
+            name: genesis
+
+      containers:
+      - name: geth-rrr
+        image: eu.gcr.io/fetlar/geth-rrr:fetlar-latest
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "800Mi"
+            cpu: "100m"
+          limits:
+            memory: "2G"
+            cpu: "1000m"
+
+        volumeMounts:
+          - name: rrrnode-pv
+            mountPath: /var/lib/quorum
+          - name: genesis
+            mountPath: /etc/config/genesis
+        env:
+          - name: NUM_BOOTNODES
+            # SHOULD match spec.replicas
+            value: "2"
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          - name: NETWORKID
+            valueFrom:
+              configMapKeyRef:
+                name: rrrnet-opts
+                key: NETWORKID
+          - name: METRICS_OPTS
+            valueFrom:
+              configMapKeyRef:
+                name: rrrnet-opts
+                key: METRICS_OPTS
+          - name: RRR_OPTS
+            valueFrom:
+              configMapKeyRef:
+                name: rrrnet-opts
+                key: RRR_OPTS
+          - name: RPC_APIS
+            valueFrom:
+              configMapKeyRef:
+                name: rrrnet-opts
+                key: RPC_APIS
+          - name: SYNC_OPTS
+            valueFrom:
+              configMapKeyRef:
+                name: rrrnet-opts
+                key: SYNC_OPTS
+          - name: PRIVATE_CONFIG
+            valueFrom:
+              configMapKeyRef:
+                name: rrrnet-opts
+                key: PRIVATE_CONFIG
+          - name: P2P_PORT
+            valueFrom:
+              configMapKeyRef:
+                name: rrrnet-opts
+                key: P2P_PORT
+          - name: WS_OPTS
+            valueFrom:
+              configMapKeyRef:
+                name: rrrnet-opts
+                key: WS_OPTS
+          - name: RPC_OPTS
+            valueFrom:
+              configMapKeyRef:
+                name: rrrnet-opts
+                key: RPC_OPTS
+          - name: MINER_OPTS
+            valueFrom:
+              configMapKeyRef:
+                name: rrrnet-opts
+                key: MINER_OPTS
+          - name: LOG_OPTS
+            valueFrom:
+              configMapKeyRef:
+                name: rrrnet-opts
+                key: LOG_OPTS
+        command:
+          - sh
+        args:
+          - -cx
+          - |
+            set -e
+
+            NAT_OPTS="--nat=none"
+            DISCOVERY_OPTS="--netrestrict=${POD_IP}/16"
+
+            # this is the genesis account
+            ETHERBASE="b5983bf72a55b48d302638da5292f60f93597d96"
+
+            cd /var/lib/quorum/node
+            PRIVATE_CONFIG=ignore geth \
+                ${RRR_OPTS} \
+                --networkid ${NETWORKID} \
+                ${NAT_OPTS} ${DISCOVERY_OPTS} \
+                ${METRICS_OPTS} \
+                --port ${P2P_PORT} \
+                --nodekey /var/lib/quorum/node/geth/nodekey \
+                --datadir /var/lib/quorum/node \
+                --gcmode archive  --syncmode full \
+                --nousb \
+                ${MINER_OPTS} --miner.etherbase ${ETHERBASE} \
+                ${RPC_OPTS} \
+                ${RPC_APIS} \
+                ${LOG_OPTS}
+
+      initContainers:
+      - name: chaininit
+        image: eu.gcr.io/fetlar/geth-rrr:fetlar-latest
+        imagePullPolicy: Always
+        volumeMounts:
+          - name: rrrnode-pv
+            mountPath: /var/lib/quorum
+          - name: genesis
+            mountPath: /etc/config/genesis
+        env:
+          - name: BUCKET
+            value: "fetlar-1-27c36a65-76c4-2cd2-7ade-29e63eb492db"
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+        command:
+          - sh
+        args:
+          - -cx
+          - |
+            set -e
+            cat <<PYEND | python3
+            import os, sys
+            import base64, pathlib, subprocess, socket, json
+            import requests, dns.resolver, dns.exception
+
+            DATA_DIR = "/var/lib/quorum/node"
+
+            GETHDIR = pathlib.Path(f"{DATA_DIR}/geth")
+
+            URL_METADATA = "http://metadata.google.internal/computeMetadata"
+            URL_SECRETS = "https://secretmanager.googleapis.com"
+
+            PROJECT_ID = requests.get(
+                f"{URL_METADATA}/v1/project/project-id",
+                headers={"Metadata-Flavor": "Google"}).text
+
+            TOKEN = requests.get(
+                f"{URL_METADATA}/v1/instance/service-accounts/default/token",
+                headers={"Metadata-Flavor": "Google"}).json()["access_token"]
+
+            HOSTNAME = socket.gethostname()
+            PODIP = socket.gethostbyname(HOSTNAME)
+            # this will break with ValueError on a non bootnode
+            POD_INDEX = int(HOSTNAME.rsplit("-", 1)[-1])
+
+            def init():
+                # genesis identities will need careful handling. bootnodes will
+                # always be genesis identities.
+                if GETHDIR.joinpath("LOCK").is_file():
+                    print(f"geth LOCK file exists assuming init ok: {DATA_DIR}/geth/LOCK")
+                    return True
+
+                keyname = f"qnode-{POD_INDEX}-key"
+                pubname = f"qnode-{POD_INDEX}-enode"
+                print(f"keyname: {keyname}, pubname: {pubname}")
+
+                resp = requests.get(
+                    f"{URL_SECRETS}/v1/projects/{PROJECT_ID}/secrets/{keyname}/versions/latest:access",
+                    headers={"Authorization": f"Bearer {TOKEN}"})
+
+                if not resp:
+                    print(f"failed getting private key: {str(resp)}", file=sys.stderr)
+                    return False
+
+                key = base64.b64decode(resp.json()["payload"]["data"]).decode()
+                resp = requests.get(
+                    f"{URL_SECRETS}/v1/projects/{PROJECT_ID}/secrets/{pubname}/versions/latest:access",
+                    headers={"Authorization": f"Bearer {TOKEN}"})
+
+                if not resp:
+                    print(f"failed getting public key (enode): {str(resp)}", file=sys.stderr)
+                    return False
+
+                enode = base64.b64decode(resp.json()["payload"]["data"]).decode()
+
+                # Make the directory so we can put the key in the place where geth
+                # expects it by default.
+                pathlib.Path(f"{DATA_DIR}/geth").mkdir(parents=True, exist_ok=True)
+                # if the key file exists and is not the same abort. operations will
+                # need to decide what to do with the disc data
+                with open(pathlib.Path(f"{DATA_DIR}/geth/nodekey"), "w") as keyfile:
+                    keyfile.write(key)
+
+                subprocess.check_call(
+                    ["geth", "init", "--datadir", DATA_DIR, "/etc/config/genesis/genesis.json"])
+
+                # We only cache this so that we can set it in the --bootnodes geth
+                # option
+                with open(pathlib.Path(f"{DATA_DIR}/enode"), "w") as enodefile:
+                    enodefile.write(enode)
+
+                # paranoid check that the nodekey is as we expect
+                with open(pathlib.Path(f"{DATA_DIR}/geth/nodekey")) as keyfile:
+                    localkey = keyfile.read()
+                    if localkey != key:
+                        print("geth init overwrote the nodekey", file=sys.stderr)
+                        return False
+                print("geth init ok")
+                return True
+
+            if not init():
+                sys.exit(1)
+
+            bootips = dict()
+            try:
+                ans = dns.resolver.resolve("bootnode.queth.svc.cluster.local", "a")
+                bootips = dict([(a.address, None) for a in ans])
+            except dns.exception.DNSException as e:
+                print(
+                    f"bootstrap nodes not available (will try any known seed nodes): {str(e)}",
+                    file=sys.stderr)
+
+            enode = None
+
+            # If this is a bootnode, put the current ip and enode in blob in a well known
+            # place.
+            if HOSTNAME.startswith("bootnode-"):
+                with open(f"{DATA_DIR}/enode") as enodefile:
+                    enode = enodefile.read()
+                    bootips[PODIP] = enode
+
+                bucket = os.environ["BUCKET"]
+                qs = (
+                    f"https://storage.googleapis.com/upload/storage/v1/b/"
+                    f"{bucket}/o?uploadType=media&name=bootnodes/{HOSTNAME}-enode")
+                resp = requests.post(
+                    qs, data=json.dumps(dict(enode=enode, ip=PODIP)),
+                    headers={"authorization": f"Bearer {TOKEN}", "content-type": "application/json"})
+                if not(resp):
+                    sys.exit(1)
+                print(resp)
+            print(bootips)
+            PYEND
+
+

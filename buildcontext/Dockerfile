@@ -23,7 +23,12 @@ RUN go install github.com/RobustRoundRobin/go-rrr/tools/cmd/rrrctl
 
 FROM alpine:latest
 
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache \
+    ca-certificates \
+    python3 \
+    py-pip \
+    py-requests && \
+    pip install dnspython
 
 COPY --from=builder /go/bin/geth /usr/local/bin/
 COPY --from=builder /go/bin/rrrctl /usr/local/bin/

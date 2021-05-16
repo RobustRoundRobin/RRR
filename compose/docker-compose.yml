@@ -76,7 +76,8 @@ x-node-base:
       # The RUN_GETH_CMD variable is set by the environment of each of the
       # supported x-node-{flavour}'s, the others all come from node-env-defaults
       # It is assumed that the service entry sets the working_dir to the
-      # correct node directory for the --nodekey and --datadir options
+      # correct node directory for the --nodek
+      # y and --datadir options
       $${RUN_GETH_CMD} \
           $${RRR_OPTS} \
           --networkid $${NETWORKID} \
@@ -96,7 +97,7 @@ x-node-defaults:
   <<: *node-base
   environment:
     << : *node-env-defaults
-  image: geth-rrr:latest
+  image: eu.gcr.io/fetlar-1/geth-rrr:fetlar-latest
   volumes:
     # Defined in the .env file
     - ${RRR_NODE_ROOT}:/nodes

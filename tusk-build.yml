@@ -31,8 +31,8 @@ tasks:
             cp buildcontext/skaffold.yaml ${workdir}/buildcontext/
 
             cd ${workdir}/buildcontext
-            export SKAFFOLD_DEFAULT_REPO=""
-            skaffold build -t latest
+            export SKAFFOLD_DEFAULT_REPO="eu.gcr.io/fetlar-1"
+            skaffold build -t fetlar-latest
 
   test:
     run:
