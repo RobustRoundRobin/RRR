@@ -82,7 +82,7 @@ module "cluster" {
       machine_type       = "n1-standard-2" # $$$
       initial_node_count = 3
       min_node_count     = 1
-      max_node_count     = 5
+      max_node_count     = 10
       preemptible        = true
       auto_repair        = true
       auto_upgrade       = true
