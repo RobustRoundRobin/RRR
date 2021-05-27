@@ -93,7 +93,7 @@ tasks:
             for n in $(seq ${start} ${end}); do
               tusk -q -f $RRR_DIR/tusk-genesis.yaml genesis \
                 --workdir ${workdir} \
-                --node ${n} --genesis ${nodesdir}/node0/genesis.json
+                --node ${n} --genesis ${nodesdir}/node0/genesis.json -f
             done
 
   keys:

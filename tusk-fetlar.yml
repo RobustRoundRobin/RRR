@@ -15,6 +15,44 @@ options:
 
 tasks:
 
+  jump:
+    run:
+      - command:
+          exec: |
+            set -e
+            kubectl -n monitoring run -i --tty --image=alpine:latest --restart=Never -- sh
+
+  blocksdb:
+    options:
+      force:
+        usage: "add --force to apply"
+        short: "f"
+        type: bool
+
+      start:
+        short: "s"
+      end:
+        short: "e"
+
+      endpoint:
+        default: "http://127.0.0.1:8300"
+
+    run:
+      - command:
+          exec: |
+            set -e
+            dbfile=$(pwd)/rrrblocks.db
+            ${force} && rm $dbfile
+            cd ../go-rrr/tools
+            echo "blocksdb file: ${dbfile}"
+            time go run cmd/rrrctl/main.go \
+              inspectheaders \
+                --endpoint ${endpoint} \
+                --dbshare \
+                --dbname ${dbfile} \
+                --start ${start} --end ${end}
+            echo "done. blocksdb file: ${dbfile}"
+
   up:
     options:
       force:

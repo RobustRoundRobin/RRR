@@ -165,8 +165,8 @@ services:
         ipv4_address: ${RRR_BOOTNODE_IP}
 
   node1:
-    << : *node-defaults
-    # << : *node-debug
+    # << : *node-defaults
+    << : *node-debug
     working_dir: /nodes/node1
 
   node2:
