@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: prometheus
+  labels:
+    app: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: prometheus
+  serviceName: prometheus
+
+  podManagementPolicy: "Parallel"
+
+  replicas: 1
+  volumeClaimTemplates:
+  - metadata:
+      name: prometheus-server-pv
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 64Gi
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+
+      initContainers:
+      - name: mount-permission-fix
+        image: busybox
+        command: ["/bin/chmod","-R","777","/prometheus/"]
+        volumeMounts:
+        - name: prometheus-server-pv
+          mountPath: /prometheus
+        # Use a root security context in the init container so we can chmod
+        # above
+        securityContext:
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
+
+      # set a not root context for the service
+      securityContext:
+        fsGroup: 65534
+        runAsGroup: 65534
+        runAsNonRoot: true
+        runAsUser: 65534
+      containers:
+        - name: prometheus
+          image: prom/prometheus
+          args:
+            - "--storage.tsdb.retention.time=48h"
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus/"
+          ports:
+            - containerPort: 9090
+          resources:
+            requests:
+              cpu: 500m
+              memory: 500M
+            limits:
+              cpu: 1
+              memory: 1Gi
+          volumeMounts:
+            - name: prometheus-server-conf
+              mountPath: /etc/prometheus/
+            - name: prometheus-server-pv
+              mountPath: /prometheus/
+      volumes:
+        - name: prometheus-server-conf
+          configMap:
+            defaultMode: 420
+            name: prometheus-server-conf

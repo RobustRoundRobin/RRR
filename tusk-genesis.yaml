@@ -27,7 +27,11 @@ options:
       command: echo ${workdir}/quorum
 
   geth:
-    default: "go run github.com/ethereum/go-ethereum/cmd/geth"
+    # default: "go run github.com/ethereum/go-ethereum/cmd/geth"
+    default: "docker run --rm -v ${workdir}:${workdir} geth-rrr:latest --nousb"
+  rrrctl:
+    # default: "go run cmd/rrrctl/main.go"
+    default: "docker run --rm -v ${workdir}:${workdir} rrrctl:latest"
 
 tasks:
 
@@ -50,6 +54,11 @@ tasks:
             RRR_DIR=$(pwd)
 
             cd ${workdir}
+
+            tusk -q -f $RRR_DIR/tusk-genesis.yaml gendoc \
+              --workdir ${workdir} \
+              --start ${start} --end ${end} | tee ${nodesdir}/node0/genesis.json
+
 
             for n in $(seq ${start} ${end}); do
               tusk -q -f $RRR_DIR/tusk-genesis.yaml genesis --workdir ${workdir} -n ${n} -f
@@ -95,6 +104,17 @@ tasks:
                 --workdir ${workdir} \
                 --node ${n} --genesis ${nodesdir}/node0/genesis.json -f
             done
+
+            RRR_BOOTNODE_PUB=$(cat ${nodesdir}/node0/enode)
+            cat <<END > $RRR_DIR/compose/.env
+            COMPOSE_PROJECT_NAME=rrr
+            RRR_SRC=../..
+            RRR_BIN=../../bin
+            RRR_NODE_ROOT=../../nodes
+            RRR_BOOTNODE_IP=172.19.0.10
+            RRR_BOOTNODE_PUB=${RRR_BOOTNODE_PUB}
+            RRR_ETHERBASE=0xfddc8ec119e799a3fb2c3455cabe72a1bd59fb5a
+            END
 
   keys:
     usage: "generate a range of keys"
@@ -207,7 +227,7 @@ tasks:
     run:
       - command:
           exec: |
-            set -e
+            set -ex
 
             SHOWIDS=""
             ${showids} && SHOWIDS="--showids"
@@ -221,7 +241,7 @@ tasks:
 
             cd ${workdir}/go-rrr/tools
 
-            go run cmd/rrrctl/main.go genextra \
+            ${rrrctl} genextra \
               ${SHOWIDS} --datadir ${node0dir} $ALPHAS
 
 
@@ -293,10 +313,8 @@ tasks:
 
             NODES_DIR=${nodesdir}
 
-            if [[ "${key}" != "/dev/stdout" ]] || [[ "${enode}" != "/dev/stdout" ]]; then
-              [ -n "${node}" ] && NODE_DIR="$NODES_DIR/node${node}" || NODE_DIR="$NODES_DIR/node0"
-              mkdir -p ${NODE_DIR} && cd ${NODE_DIR}
-            fi
+            [ -n "${node}" ] && NODE_DIR="$NODES_DIR/node${node}" || NODE_DIR="$NODES_DIR/node0"
+            mkdir -p ${NODE_DIR} && cd ${NODE_DIR}
 
             # Note that [ -f /dev/stdout ] is FALSE, so we don't need to guard
             # against deleting it
@@ -307,15 +325,20 @@ tasks:
             fi
             [[ -f "${key}" || -f "${enode}" ]] && echo "key or enode exist: ${key}, ${enode}. -f to force delete" && exit 1
 
-            pushd ${quorumdir}
-            KEY=$(go run github.com/ethereum/go-ethereum/cmd/bootnode --genkey /dev/stdout)
-            ENODE=$(echo $KEY | go run github.com/ethereum/go-ethereum/cmd/bootnode --nodekey /dev/stdin --writeaddress)
-            popd
+            cat <<PYEND | python3
+            import os, secrets
+            from sha3 import keccak_256
+            from coincurve import PublicKey, PrivateKey
 
-            echo $KEY > ${key} && echo "wrote: ${key}"
-            echo $ENODE > ${enode} && echo "wrote: ${enode}"
-
-            pwd
+            key = PrivateKey()
+            pub = key.public_key.format(compressed=False)[1:]
+            with open("${key}", "w") as f:
+                f.write(key.to_hex())
+                print(f"wrote: {os.getcwd()}/" + "${key}")
+            with open("${enode}", "w") as f:
+                f.write(pub.hex())
+                print(f"wrote: {os.getcwd()}/" + "${enode}")
+            PYEND
 
   alpha:
     usage: "alpha contribution from node private key file"
@@ -336,8 +359,8 @@ tasks:
             cat <<PYEND | python3
             import coincurve, sha3, secrets
 
-            key = open("${key}", 'r').read()
-            key = coincurve.PrivateKey.from_hex(key[:-1])
+            key = open("${key}", 'r').read().strip()  # deal with newlines at end of file
+            key = coincurve.PrivateKey.from_hex(key)
             rawpub = coincurve.PublicKey.from_valid_secret(key.secret).format(compressed=False)
             nodeid = sha3.keccak_256(rawpub[1:]).digest()
             # This nodes contribution to the genesis seed alpha

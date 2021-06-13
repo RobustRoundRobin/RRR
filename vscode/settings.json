@@ -2,6 +2,7 @@
     "go.inferGopath": false,
     "go.autocompleteUnimportedPackages": true,
     "go.delveConfig": {
+        
 
         "dlvLoadConfig": {
             "followPointers": true,
@@ -12,5 +13,11 @@
         },
         "apiVersion": 2,
         "showGlobalVariables": false
+    },
+    "go.testEnvVars": {
+        "NODE_ENDPOINT":"http://127.0.0.1:8300",
+        "CHECK_BATCH_RECIEPTS": "0",
+        "NUM_TRANSACTIONS": "80000",
+        "MAX_NODES":"10",
     },
 }

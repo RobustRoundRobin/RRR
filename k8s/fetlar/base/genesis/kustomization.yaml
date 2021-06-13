@@ -6,7 +6,9 @@ configMapGenerator:
   literals:
   - NETWORKID=53456
   - >-
-    METRICS_OPTS=--metrics --pprof --pprof.addr 0.0.0.0 --pprof.port 9545
+    METRICS_OPTS=
+    --metrics --metrics.addr 0.0.0.0 --metrics.port 6060
+    --pprof --pprof.addr 0.0.0.0 --pprof.port 9545
   # RRR_OPTS It is critical (for efficient operation) that all nodes use the
   # same rrr consensus options. Using different options is effectively
   # 'byzantine' behaviour.  In future these options will likely go in the
@@ -29,7 +31,7 @@ configMapGenerator:
     MINER_OPTS=
     --miner.gastarget 3000000000
     --mine --miner.threads 1
-  - LOG_OPTS=--vmodule consensus/*=5,miner/*=2,eth/*=2,p2p/*=2 --verbosity 2
+  - LOG_OPTS=--vmodule consensus/*=3,miner/*=2,eth/*=2,p2p/*=3 --verbosity 2
 - name: genesis
   files:
   - genesis.json

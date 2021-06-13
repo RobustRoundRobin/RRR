@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jump
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jump
+  template:
+    metadata:
+      labels:
+        app: jump
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: work-pool
+      containers:
+        - name: jump
+          image: alpine:latest
+          command:
+            - sh
+          args:
+            - -cx
+            - |
+              set -e
+              apk --update add curl jq
+              sleep 3600
+
+      restartPolicy: Always
+

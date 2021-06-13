@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  labels:
+    app: prometheus
+    app.kubernetes.io/name: prometheus
+
+spec:
+  ports:
+  - name: tcp-prom
+    port: 9090
+  clusterIP: None
+  selector:
+    app: prometheus

@@ -29,6 +29,10 @@ spec:
         #skaffold.dev/run-id: static
         #app.kubernetes.io/managed-by: skaffold
         app.kubernetes.io/part-of: rrrnet
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/debug/metrics/prometheus"
+        prometheus.io/port: "6060"
     spec:
       affinity:
         nodeAffinity:
@@ -56,11 +60,11 @@ spec:
         imagePullPolicy: Always
         resources:
           requests:
-            memory: "800Mi"
+            memory: "400Mi"
             cpu: "100m"
           limits:
-            memory: "2G"
-            cpu: "1000m"
+            memory: "1G"
+            cpu: "1500m"
         volumeMounts:
           - name: rrrnode-pv
             mountPath: /var/lib/quorum
@@ -78,6 +82,11 @@ spec:
               configMapKeyRef:
                 name: rrrnet-opts
                 key: NETWORKID
+          - name: METRICS_OPTS
+            valueFrom:
+              configMapKeyRef:
+                name: rrrnet-opts
+                key: METRICS_OPTS
           - name: RRR_OPTS
             valueFrom:
               configMapKeyRef:

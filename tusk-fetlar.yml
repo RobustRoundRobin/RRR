@@ -87,8 +87,14 @@ tasks:
             [ ! -f Dockerfile ] && ln -s $(pwd)/buildcontext/Dockerfile Dockerfile
             [ ! -f Dockerfile-rrrctl ] && ln -s $(pwd)/buildcontext/Dockerfile Dockerfile-rrrctl
 
+            TAG=fetlar-ntp
+
             export SKAFFOLD_DEFAULT_REPO="eu.gcr.io/fetlar-1"
-            skaffold build -t fetlar-latest
+            skaffold build -t $TAG
+
+            docker tag $SKAFFOLD_DEFAULT_REPO/geth-rrr:$TAG geth-rrr:latest
+            docker tag $SKAFFOLD_DEFAULT_REPO/rrrctl:$TAG rrrctl:latest
+
 
 
   deploygenesis:

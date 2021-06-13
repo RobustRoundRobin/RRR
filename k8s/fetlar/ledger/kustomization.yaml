@@ -4,3 +4,4 @@ kind: Kustomization
 bases:
   - ../base/kubeip
   - ../base/rrrnet
+  #- ../base/monitoring

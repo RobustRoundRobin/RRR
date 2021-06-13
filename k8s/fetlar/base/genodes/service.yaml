@@ -15,6 +15,8 @@ spec:
     port: 8300
   - name: tcp-wsock
     port: 8400
+  - name: tcp-metr
+    port: 6060
   clusterIP: None
   selector:
     app: node

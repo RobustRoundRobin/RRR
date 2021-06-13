@@ -15,6 +15,11 @@ tasks:
       - task: images
 
   images:
+    options:
+      build:
+        short: "b"
+        default: ""
+
     run:
       - command:
           exec: |
@@ -22,17 +27,23 @@ tasks:
             [ ! -d ${workdir}/quorum ] && echo "RobustRoundRobin/quorum git clone missing" && exit 1
             [ ! -d ${workdir}/go-rrr ] && echo "RobustRoundRobin/go-rrr git clone missing" && exit 1
 
-            mkdir -p ${workdir}/buildcontext
-            rsync -a ${workdir}/quorum ${workdir}/buildcontext
-            rsync -a ${workdir}/go-rrr ${workdir}/buildcontext
+            RRR_DIR=$(pwd)
+            cd ${workdir}
+            [ ! -f skaffold.yaml ] && ln -s $(pwd)/buildcontext/skaffold.yaml skaffold.yaml
+            [ ! -f .dockerignore ] && ln -s $(pwd)/buildcontext/.dockeringore .dockerignore
+            [ ! -f Dockerfile ] && ln -s $(pwd)/buildcontext/Dockerfile Dockerfile
+            [ ! -f Dockerfile-rrrctl ] && ln -s $(pwd)/buildcontext/Dockerfile Dockerfile-rrrctl
 
-            cp buildcontext/.dockerignore ${workdir}/buildcontext/.dockerignore
-            cp buildcontext/Dockerfile* ${workdir}/buildcontext/
-            cp buildcontext/skaffold.yaml ${workdir}/buildcontext/
+            TAG=fetlar-ntp
 
-            cd ${workdir}/buildcontext
+            BUILD=""
+            [ "${build}" != "" ] && BUILD="-b ${build}"
+
             export SKAFFOLD_DEFAULT_REPO="eu.gcr.io/fetlar-1"
-            skaffold build -t fetlar-latest
+            skaffold build -t $TAG $BUILD
+
+            docker tag $SKAFFOLD_DEFAULT_REPO/geth-rrr:$TAG geth-rrr:latest
+            docker tag $SKAFFOLD_DEFAULT_REPO/rrrctl:$TAG rrrctl:latest
 
   test:
     run:
