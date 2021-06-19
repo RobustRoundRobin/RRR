@@ -56,7 +56,7 @@ spec:
 
       containers:
       - name: geth-rrr
-        image: eu.gcr.io/fetlar/geth-rrr:fetlar-latest
+        image: eu.gcr.io/fetlar/geth-rrr:fetlar-ntp
         imagePullPolicy: Always
         resources:
           requests:
@@ -165,7 +165,7 @@ spec:
 
       initContainers:
       - name: chaininit
-        image: eu.gcr.io/fetlar/geth-rrr:fetlar-latest
+        image: eu.gcr.io/fetlar/geth-rrr:fetlar-ntp
         imagePullPolicy: Always
         volumeMounts:
           - name: rrrnode-pv

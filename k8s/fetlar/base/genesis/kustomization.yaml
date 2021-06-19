@@ -13,7 +13,11 @@ configMapGenerator:
   # same rrr consensus options. Using different options is effectively
   # 'byzantine' behaviour.  In future these options will likely go in the
   # genesis doc
-  - RRR_OPTS=--rrr.nc 2 --rrr.ne 7 --rrr.q 4 --rrr.ta 2000 --rrr.confirmphase 1500 --rrr.roundlength 3500
+  - >-
+    RRR_OPTS=
+    --rrr.roundagreement ntp
+    --rrr.nc 2 --rrr.ne 7 --rrr.q 4 --rrr.ta 2000
+    --rrr.intentphase 1200 --rrr.confirmphase 1600 --rrr.roundlength 3500
   - RPC_APIS=--rpcapi rrr,admin,eth,debug,miner,net,txpool,personal,web3
   - SYNC_OPTS=--gcmode archive --syncmode full
   - PRIVATE_CONFIG=ignore

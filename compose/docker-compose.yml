@@ -18,7 +18,7 @@ x-node-env-defaults:
   &node-env-defaults
   NETWORKID: "53456"
   PRIVATE_CONFIG: ignore
-  RRR_OPTS: "--rrr.roundagreement ntp --rrr.nc 2 --rrr.ne 3 --rrr.q 2 --rrr.ta 2000 --rrr.confirmphase 2600 --rrr.roundlength 5"
+  RRR_OPTS: "--rrr.roundagreement ntp --rrr.nc 2 --rrr.ne 8 --rrr.q 5 --rrr.ta 200 --rrr.intentphase 1500 --rrr.confirmphase 1500 --rrr.roundlength 5000"
   # DISCOVERY_OPTS: "--nodiscover"
   NAT_OPTS: "--nat=none"
   DISCOVERY_OPTS: "--netrestrict=${RRR_BOOTNODE_IP}/24 --bootnodes=enode://${RRR_BOOTNODE_PUB}@${RRR_BOOTNODE_IP}:7200"
@@ -34,7 +34,7 @@ x-node-env-defaults:
   MINER_OPTS: "\
    --miner.gastarget 3000000000 \
    --mine --miner.threads 1 --miner.etherbase ${RRR_ETHERBASE}"
-  LOG_OPTS: "--vmodule consensus/*=3,miner/*=3,eth/*=2,p2p/*=2 --verbosity 3"
+  LOG_OPTS: "--vmodule consensus/*=7,miner/*=3,eth/*=2,p2p/*=2 --verbosity 3"
   # --debug adds source and line no
   # LOG_OPTS: "--debug --vmodule consensus/*=7,miner/*=5 --verbosity 3"
 
@@ -165,8 +165,8 @@ services:
         ipv4_address: ${RRR_BOOTNODE_IP}
 
   node1:
-    # << : *node-defaults
-    << : *node-debug
+    << : *node-defaults
+    # << : *node-debug
     working_dir: /nodes/node1
 
   node2:
@@ -226,6 +226,10 @@ services:
   node14:
     << : *node-defaults
     working_dir: /nodes/node14
+
+  node15:
+    << : *node-defaults
+    working_dir: /nodes/node15
 
 volumes:
   go-pkg-volume:

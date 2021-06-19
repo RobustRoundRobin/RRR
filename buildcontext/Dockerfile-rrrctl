@@ -1,12 +1,28 @@
 FROM golang:1.15.5-alpine as builder
 RUN apk add --no-cache make gcc musl-dev linux-headers git
-ADD quorum /build/quorum
-ADD go-rrr /build/go-rrr
-RUN find /build -type d
 
 ENV GOBIN=/go/bin
 
+# Cache the go mod download
+COPY quorum/go.mod /build/quorum/
+COPY quorum/go.sum /build/quorum/
+COPY quorum/crypto/secp256k1/go.mod /build/quorum/crypto/secp256k1/
+
+COPY go-rrr/consensus/go.mod /build/go-rrr/consensus/
+COPY go-rrr/consensus/go.sum /build/go-rrr/consensus/
+COPY go-rrr/tools/go.mod /build/go-rrr/tools/
+COPY go-rrr/tools/go.sum /build/go-rrr/tools/
+COPY go-rrr/secp256k1suite/go.mod /build/go-rrr/secp256k1suite/
+COPY go-rrr/secp256k1suite/go.sum /build/go-rrr/secp256k1suite/
+
 WORKDIR /build/go-rrr/tools
+RUN go mod download
+
+COPY quorum /build/quorum
+COPY go-rrr/consensus /build/go-rrr/consensus
+COPY go-rrr/secp256k1suite /build/go-rrr/secp256k1suite
+COPY go-rrr/tools /build/go-rrr/tools
+
 RUN go install github.com/RobustRoundRobin/go-rrr/tools/cmd/rrrctl
 
 FROM alpine:latest

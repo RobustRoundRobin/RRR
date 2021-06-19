@@ -190,6 +190,9 @@ def cmd_getsecret(args):
 def cmd_create_nodekey(args):
     """Create a geth node key"""
 
+    # TODO
+    # key = keccak_256(secrets.token_bytes(32)).digest()
+
     labels = labels_from_args(args)
 
     key = sp.run(

@@ -45,7 +45,7 @@
                 "--nodekey", "${workspaceFolder}/../nodes/node0/key",
                 "--datadir", "${workspaceFolder}/../nodes/node0/data",
                 "--port", "7220",
-                "--rrr.nc", "2", "--rrr.ne", "7", "--rrr.q", "4", "--rrr.ta", "250", "--rrr.roundlength", "6500", "--rrr.confirmphase=3500",
+                "--rrr.nc", "2", "--rrr.ne", "7", "--rrr.q", "4", "--rrr.ta", "250", "--rrr.roundlength", "4", "--rrr.intentphase=1000", "--rrr.confirmphase=1000",
                 "--gcmode", "archive", "--syncmode", "full",
                 "--mine", "--minerthreads", "1", "--miner.etherbase", "0xfddc8ec119e799a3fb2c3455cabe72a1bd59fb5a", "--miner.gastarget", "3000000000",
                 "--rpc",
