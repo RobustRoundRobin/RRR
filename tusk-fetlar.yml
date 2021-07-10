@@ -12,6 +12,12 @@ options:
       The directory containing all the repos we need go-rrr, quorum etc
     default:
       command: echo $(cd $(git rev-parse --show-toplevel)/..; pwd)
+  geth:
+    # default: "go run github.com/ethereum/go-ethereum/cmd/geth"
+    default: "docker run --rm -v ${workdir}:${workdir} geth-rrr:latest --nousb"
+  rrrctl:
+    # default: "go run cmd/rrrctl/main.go"
+    default: "docker run --rm -v ${workdir}:${workdir} rrrctl:latest"
 
 tasks:
 
@@ -45,7 +51,7 @@ tasks:
             ${force} && rm $dbfile
             cd ../go-rrr/tools
             echo "blocksdb file: ${dbfile}"
-            time go run cmd/rrrctl/main.go \
+            time ${rrrctl} \
               inspectheaders \
                 --endpoint ${endpoint} \
                 --dbshare \
@@ -71,48 +77,6 @@ tasks:
           exec: |
             set -e
             kubectl delete -k k8s/fetlar/ledger
-
-  images:
-    run:
-      - command:
-          exec: |
-            set -e
-            [ ! -d ${workdir}/quorum ] && echo "RobustRoundRobin/quorum git clone missing" && exit 1
-            [ ! -d ${workdir}/go-rrr ] && echo "RobustRoundRobin/go-rrr git clone missing" && exit 1
-
-            RRR_DIR=$(pwd)
-            cd ${workdir}
-            [ ! -f skaffold.yaml ] && ln -s $(pwd)/buildcontext/skaffold.yaml skaffold.yaml
-            [ ! -f .dockerignore ] && ln -s $(pwd)/buildcontext/.dockeringore .dockerignore
-            [ ! -f Dockerfile ] && ln -s $(pwd)/buildcontext/Dockerfile Dockerfile
-            [ ! -f Dockerfile-rrrctl ] && ln -s $(pwd)/buildcontext/Dockerfile Dockerfile-rrrctl
-
-            export SKAFFOLD_DEFAULT_REPO="eu.gcr.io/fetlar-1"
-            skaffold build -t fetlar-latest
-
-
-  deploygenesis:
-    usage: "update the network genesis parameters (IMPLIES CHAIN RESET or INIT)"
-    options:
-      end:
-        usage: "how many identities to enrole in genesis (up to the max you have deployed keys for)"
-        short: "e"
-        default: "29"
-    run:
-      - command:
-          exec: |
-            set -e
-            cd $(git rev-parse --show-toplevel)
-
-            pushd tf/fetlar/ledger
-            TFOUT_LEDGER=$(terraform output -json)
-            PROJECT=$(echo "$TFOUT_LEDGER" | jq -r .gcp_project_id.value)
-            BUCKET=$(echo "$TFOUT_LEDGER" | jq -r .cluster_bucket.value)
-            popd
-
-            tools/gcpblob.py -t "$TOKEN" -p "$PROJECT" -b $BUCKET \
-              post network-genesis/genesis.json \
-                --datafile <(tusk -q -f $(pwd)/tusk-fetlar.yml gendoc --workdir ${workdir} -s 0 -e ${end})
 
   gendoc:
     usage: "create a genesis document from a template doc and alpha contributions"
@@ -238,6 +202,6 @@ tasks:
             done
 
             cd ${workdir}/go-rrr/tools
-            go run cmd/rrrctl/main.go genextra \
+            ${rrrctl} genextra \
                --keyhex $KEY0 \
                $ALPHA

@@ -15,16 +15,37 @@ tasks:
       - task: images
 
   images:
+    options:
+      build:
+        short: "b"
+        default: ""
+      repodir:
+        default: "devclutter"
+
     run:
       - command:
           exec: |
             set -e
+
             [ ! -d ${workdir}/quorum ] && echo "RobustRoundRobin/quorum git clone missing" && exit 1
             [ ! -d ${workdir}/go-rrr ] && echo "RobustRoundRobin/go-rrr git clone missing" && exit 1
 
-            mkdir -p ${workdir}/buildcontext
-            rsync -a ${workdir}/quorum ${workdir}/buildcontext
-            rsync -a ${workdir}/go-rrr ${workdir}/buildcontext
+
+            RRR_DIR=$(pwd)
+            cd ${workdir}
+            # [ ! -f skaffold.yaml ] && ln -s devclutter/buildcontext/skaffold.yaml skaffold.yaml
+            # [ ! -f .dockerignore ] && ln -s devclutter/buildcontext/.dockerignore .dockerignore
+            # [ ! -f Dockerfile ] && ln -s devclutter/buildcontext/Dockerfile Dockerfile
+            # [ ! -f Dockerfile-rrrctl ] && ln -s devclutter/buildcontext/Dockerfile Dockerfile-rrrctl
+
+            cp -v $(pwd)/devclutter/buildcontext/skaffold.yaml skaffold.yaml
+            cp -v $(pwd)/devclutter/buildcontext/.dockerignore .dockerignore
+            cp -v $(pwd)/devclutter/buildcontext/Dockerfile Dockerfile
+            cp -v $(pwd)/devclutter/buildcontext/Dockerfile-rrrctl Dockerfile-rrrctl
+            cp -v $(pwd)/devclutter/compose/Dockerfile-delve Dockerfile-delve
+
+
+            TAG=fetlar-ntp
 
             cp buildcontext/.dockerignore ${workdir}/buildcontext/.dockerignore
             cp buildcontext/Dockerfile* ${workdir}/buildcontext/

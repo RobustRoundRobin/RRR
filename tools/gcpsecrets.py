@@ -70,16 +70,17 @@ def create_secret(args, name, data, **labels):
 
     creds, project = get_defaults(args)
     c = sm.SecretManagerServiceClient(credentials=creds)
-    parent = c.project_path(project)
+    parent = f"projects/{project}"
 
     try:
-        s = c.create_secret(parent, name, dict(
-            replication=dict(automatic={}), labels=labels))
+        s = c.create_secret(
+                parent=parent, secret_id=name,
+                secret=dict(replication=dict(automatic={}), labels=labels))
     except ge.AlreadyExists:
-        resourcename = f"projects/{project}/secrets/{name}"
+        resourcename = f"{parent}/secrets/{name}"
         print(f"secret {name} exists, get: {resourcename}")
-        s = c.get_secret(resourcename)
-    v = c.add_secret_version(s.name, dict(data=data))
+        s = c.get_secret(name=resourcename)
+    v = c.add_secret_version(parent=s.name, payload=dict(data=data))
     return s, v
 
 
@@ -88,8 +89,8 @@ def get_secret(args, name):
     creds, project = get_defaults(args)
     c = sm.SecretManagerServiceClient(credentials=creds)
 
-    resourcepath = c.secret_version_path(project, name, "latest")
-    secret = c.access_secret_version(resourcepath)
+    resourcepath = f"projects/{project}/secrets/{name}/versions/latest"
+    secret = c.access_secret_version(name=resourcepath)
     return secret.payload.data
 
 
@@ -101,7 +102,7 @@ def cmd_delete_secrets(args):
     for name in args.names:
         resourcename = f"projects/{project}/secrets/{name}"
         try:
-            c.delete_secret(resourcename)
+            c.delete_secret(name=resourcename)
             print(f"{resourcename} deleted")
         except ge.NotFound:
             print(f"{resourcename} not found")
@@ -192,17 +193,9 @@ def cmd_create_nodekey(args):
 
     labels = labels_from_args(args)
 
-    key = sp.run(
-        f"docker run --rm -u {os.getuid()}:{os.getgid()}"
-        " --entrypoint=/usr/local/bin/bootnode"
-        f" {QUORUM_IMAGE} --genkey=/dev/stdout".split(),
-        check=True, stdout=sp.PIPE, stderr=sp.PIPE).stdout
+    key = coincurve.PrivateKey().to_hex()
+    enodeaddr = key.public_key.format(compressed=False)[1:].hex()
 
-    enodeaddr = sp.run(
-        f"docker run --rm -i -u {os.getuid()}:{os.getgid()}"
-        " --entrypoint=/usr/local/bin/bootnode"
-        f" {QUORUM_IMAGE} --nodekey=/dev/stdin --writeaddress".split(),
-        input=key, check=True, stdout=sp.PIPE, stderr=sp.PIPE).stdout.strip()
     print(f"enodeaddr: {enodeaddr}")
 
     for name, data in [

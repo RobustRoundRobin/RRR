@@ -51,9 +51,6 @@ vscode config, (or derive your own.)
 
 Having done all of that open ROOT/gopath as a "folder" in vscode.
 
-Note: You MUST NOT set GO111MODULE=on in your environment, as go-ethereum is
-not go.mod compatible.
-
 ## tusk.yml
 
 Uses [go-tusk](https://rliebz.github.io/tusk/) to provide a collection of runes
@@ -79,73 +76,21 @@ Pick a common root folder and peform the following steps
 
         rrr
 
-1. Generate a wallet for inclusion in the `alloc' in the genesis document
+1. build the images
 
-        tusk -q -f ./rrr/tusk.yml wallet
+      tusk -q -f rrr/tusk-build.yml images
 
-    This creates
+1. Generate the node keys, genesis and folders
 
-        nodes/node0/genesis-wallet.[key,pub,addr]
+        tusk -q -f rrr/tusk-genesis.yml all
 
-1. Generate the node keys and folders
+1. update the rrr/compose/.env
 
-        tusk -q -f rrr/tusk-genesis.yml keys
-
-    This creates
-
-        nodes/node[0-11]/enode
-        nodes/node[0-11]/key
-
-1. before continuing ensure GO111MODULE is *not* set in your environment
-
-1. Generate the node enrolments for the genesis extra data
-
-        tusk -q -f ./tusk-genesis.yaml extra
-
-1. Copy genesis.json to nodes/node0/gensis.json and copy the big hex
-   string from the end of the output of the previous command in to the
-   extraData value, replacing "<RORORO EXTRADATA to enrol validators". Be sure
-   to prefix the string with '0x'
-
-1. Copy the genesis wallet address from nodes/node0/genesis-wallet.addr
-   into the "alloc", replacing "GENSIS-WALLET"
-
-1. update the rrr/compose/docker-compose.yml x-node-env-defaults
-   to set --miner.etherbase to the genesis wallet address
-
-1. Run genesis and initialise all the nodes (geth init)
-
-       task -q -f ./tusk-genesis.yaml init-all
-
-   This prints the extraData needed to enrol all the nodes in the genesis block
-   (via the extraData field in the genesis.json). It also creates a
-   static-nodes.json with each of those nodes in which is appropriate for the
-   compose setup. This static-nodes.json is copied in to each node's director.
-
-1. check that static-nodes.json has been copied into each of the nodes data
-   directories by the previous step. For each of [n] nodes look for it here:
-
-       nodes/node[n]/data/geth/static-nodes.json
-
-1. IF running directly from source, build the base docker image for hosting the
-   nodes. Only need to do this once as our compose file mounts the host source
-   rather than building the code into images.
-
-        cd rrr/compose
-        docker-compose build debug
-        cd -
-
-1. To build the docker file for the fork
-
-        cd gopath/src/github.com/go-ethereum
-        docker build . -t geth-rrr -f Dockerfile-rrr
-        cd -
+   Set RRR_BOOTNODE_PUB to $(cat nodes/node0/enode)
+   Set RRR_ETHERBASE to $(cat nodes/gensis-wallet.addr)
 
 1. start some nodes
 
         cd /compose
         docker-compose up node0 node1 node2
         cd -
-
-1. create a symlink from gopath/.vscode to rrr/vscode
-

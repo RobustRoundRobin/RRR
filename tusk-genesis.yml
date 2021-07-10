@@ -40,7 +40,7 @@ tasks:
         default: "0"
       end:
         short: "e"
-        default: "14"
+        default: "15"
 
     run:
       - command:
@@ -51,8 +51,13 @@ tasks:
 
             cd ${workdir}
 
+            tusk -q -f $RRR_DIR/tusk-genesis.yml gendoc \
+              --workdir ${workdir} \
+              --start ${start} --end ${end} | tee ${nodesdir}/node0/genesis.json
+
+
             for n in $(seq ${start} ${end}); do
-              tusk -q -f $RRR_DIR/tusk-genesis.yaml genesis --workdir ${workdir} -n ${n} -f
+              tusk -q -f $RRR_DIR/tusk-genesis.yml genesis --workdir ${workdir} -n ${n} -f
               mkdir -p ${nodesdir}/node${n}/data/geth
             done
 
@@ -64,34 +69,40 @@ tasks:
         default: "0"
       end:
         short: "e"
-        default: "14"
+        default: "15"
 
     run:
       - command:
           exec: |
-            set -e
+            set -ex
 
             RRR_DIR=$(pwd)
+
+            mkdir -p ${nodesdir}
+
+            tusk -q -f $RRR_DIR/tusk.yml wallet --name ${nodesdir}/genesis-wallet
+            cat ${nodesdir}/genesis-wallet.addr
 
             cd ${workdir}
             for n in $(seq ${start} ${end}); do
               rm -rf ${nodesdir}/node${n}
             done
 
-            tusk -q -f $RRR_DIR/tusk-genesis.yaml keys \
+            tusk -q -f $RRR_DIR/tusk-genesis.yml keys \
               --workdir ${workdir} \
               --start ${start} --end ${end}
 
-            tusk -q -f $RRR_DIR/tusk-genesis.yaml alphas \
+            tusk -q -f $RRR_DIR/tusk-genesis.yml alphas \
               --workdir ${workdir} \
               --start ${start} --end ${end}
 
-            tusk -q -f $RRR_DIR/tusk-genesis.yaml gendoc \
+            tusk -q -f $RRR_DIR/tusk-genesis.yml gendoc \
+              --account=$(cat ${nodesdir}/genesis-wallet.addr) \
               --workdir ${workdir} \
               --start ${start} --end ${end} | tee ${nodesdir}/node0/genesis.json
 
             for n in $(seq ${start} ${end}); do
-              tusk -q -f $RRR_DIR/tusk-genesis.yaml genesis \
+              tusk -q -f $RRR_DIR/tusk-genesis.yml genesis \
                 --workdir ${workdir} \
                 --node ${n} --genesis ${nodesdir}/node0/genesis.json -f
             done
@@ -104,7 +115,7 @@ tasks:
         default: "0"
       end:
         short: "e"
-        default: "14"
+        default: "15"
     run:
       - command:
           exec: |
@@ -112,8 +123,8 @@ tasks:
 
             NODES_DIR=${nodesdir}
             for n in $(seq ${start} ${end}); do
-              tusk -q -f tusk-genesis.yaml nodekey --workdir=${workdir} -n ${n} -f
-              ALPHA=$(tusk -q -f tusk-genesis.yaml alpha --workdir ${workdir} -j $NODES_DIR/node${n}/key)
+              tusk -q -f tusk-genesis.yml nodekey --workdir=${workdir} -n ${n} -f
+              ALPHA=$(tusk -q -f tusk-genesis.yml alpha --workdir ${workdir} -j $NODES_DIR/node${n}/key)
               echo $ALPHA > $NODES_DIR/node${n}/alpha.json
             done
 
@@ -125,7 +136,7 @@ tasks:
         default: "0"
       end:
         short: "e"
-        default: "14"
+        default: "15"
     run:
       - command:
           exec: |
@@ -134,7 +145,7 @@ tasks:
             NODES_DIR=${nodesdir}
             for n in $(seq ${start} ${end}); do
 
-              ALPHA=$(tusk -q -f tusk-genesis.yaml alpha --workdir ${workdir} -j $NODES_DIR/node${n}/key)
+              ALPHA=$(tusk -q -f tusk-genesis.yml alpha --workdir ${workdir} -j $NODES_DIR/node${n}/key)
               echo $ALPHA > $NODES_DIR/node${n}/alpha.json
               echo "Wrote $NODES_DIR/node${n}/alpha.json"
             done
@@ -158,13 +169,13 @@ tasks:
         default: "0"
       end:
         short: "e"
-        default: "14"
+        default: "15"
     run:
       - command:
           exec: |
             set -e
 
-            export EXTRADATA=$(tusk -q -f $(pwd)/tusk-genesis.yaml extra --workdir ${workdir} -s ${start} -e ${end})
+            export EXTRADATA=$(tusk -q -f $(pwd)/tusk-genesis.yml extra --workdir ${workdir} -s ${start} -e ${end})
 
             cat <<PYEND | python3
             import os
@@ -202,7 +213,7 @@ tasks:
         default: "0"
       end:
         short: "e"
-        default: "14"
+        default: "15"
 
     run:
       - command:

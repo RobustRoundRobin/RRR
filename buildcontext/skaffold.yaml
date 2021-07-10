@@ -13,4 +13,9 @@ build:
       context: .
       docker:
         dockerfile: Dockerfile-rrrctl
+    - image: rrr-delve
+      context: .
+      docker:
+        dockerfile: Dockerfile-delve
+
 
