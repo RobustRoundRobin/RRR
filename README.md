@@ -77,9 +77,9 @@ consequently remain as decentralised as possible.
 * [x] Open the repository
 * [x] Put in intent phase timer, so that we can properly select the "oldest seen
     candidate" for confirmation, rather than "first seen"
-* [ ] VRF & seeding for the candidate and endorser selection
-* [ ] Membership changes - convenience here is essential for addoption over raft
-* [ ] Empirical testing to decide upon sync on block arrival vs synchronised clocks
+* [x] VRF & seeding for the candidate and endorser selection
+* [x] Membership changes - convenience here is essential for addoption over raft
+* [x] Empirical testing to decide upon sync on block arrival vs synchronised clocks
 
 ## Specification
 
