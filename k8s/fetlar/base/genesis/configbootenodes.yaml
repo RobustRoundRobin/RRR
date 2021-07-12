@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rrrbootenodes
+  namespace: queth
+  labels:
+    app: bootnode
+data:
+  BOOTNODE0_PUB: 6722a4968cd7401c31d5c90759c07ecf4b87529541413b719269cff9f5e48835026dbabfaae08d947c5bcac6d16d81ebdca2ecadee5c484478de3f9bc4a2726c
+  BOOTNODE1_PUB: 6ed5fadef2a65ae195e146ee073189feae90b6cbb1e75eba4abb777d48a7fe75e649fe9927b110a295a63abf2ad712e15ce4eeb930f5025743afa46b0168cd88

@@ -69,6 +69,16 @@ spec:
         env:
           - name: NUM_BOOTNODES
             value: "2"
+          - name: BOOTNODE0_PUB
+            valueFrom:
+              configMapKeyRef:
+                name: rrrbootenodes
+                key: BOOTNODE0_PUB
+          - name: BOOTNODE1_PUB
+            valueFrom:
+              configMapKeyRef:
+                name: rrrbootenodes
+                key: BOOTNODE1_PUB
           - name: POD_IP
             valueFrom:
               fieldRef:
@@ -131,7 +141,8 @@ spec:
             set -e
             cd /var/lib/quorum/node
 
-            BOOTNODES=$(cat BOOTNODES)
+            BOOTNODES=enode://${BOOTNODE0_PUB}@bootnode-0.bootnode.queth.svc.cluster.local:${P2P_PORT}
+            BOOTNODES=${BOOTNODES},enode://${BOOTNODE1_PUB}@bootnode-1.bootnode.queth.svc.cluster.local:${P2P_PORT}
 
             NAT_OPTS="--nat=none"
             DISCOVERY_OPTS="--netrestrict=${POD_IP}/16 --bootnodes=${BOOTNODES}"
@@ -190,15 +201,11 @@ spec:
             cat <<PYEND | python3
             import os, sys
             import base64, pathlib, subprocess, socket, json
-            import requests, dns.resolver, dns.exception
+            import requests
 
             DATA_DIR = "/var/lib/quorum/node"
             URL_METADATA = "http://metadata.google.internal/computeMetadata"
             URL_SECRETS = "https://secretmanager.googleapis.com"
-
-            NUM_BOOTNODES = int(os.environ["NUM_BOOTNODES"])
-            P2P_PORT = int(os.environ["P2P_PORT"])
-            BUCKET = os.environ["BUCKET"]
 
             GETHDIR = pathlib.Path(f"{DATA_DIR}/geth")
 
@@ -211,6 +218,7 @@ spec:
                 headers={"Metadata-Flavor": "Google"}).json()["access_token"]
 
             HOSTNAME = socket.gethostname()
+            NUM_BOOTNODES = int(os.environ['NUM_BOOTNODES'])
             # this will break with ValueError on a non bootnode
             POD_INDEX = int(HOSTNAME.rsplit("-", 1)[-1])
             KEY_INDEX = NUM_BOOTNODES + POD_INDEX
@@ -275,50 +283,4 @@ spec:
 
             if not init(TOKEN, PROJECT_ID, KEY_INDEX, DATA_DIR):
                 sys.exit(1)
-
-            # Now we need to wait for at least one bootnode whose blob ip
-            # matches the dns ip
-            token = requests.get(
-                f"{URL_METADATA}/v1/instance/service-accounts/default/token",
-                headers={"Metadata-Flavor": "Google"}).json()["access_token"]
-
-            # Always prefer the ip from cluster dns. the public key is always taken from
-            # the blob as that will only change if we are re-creating the whole chain.
-            bootips = dict()
-            try:
-                ans = dns.resolver.resolve("bootnode.queth.svc.cluster.local", "a")
-                bootips = dict([(a.address, None) for a in ans])
-                if not ans:
-                    print(f"bootstrap nodes not available", file=sys.stderr)
-                    sys.exit(1)
-            except dns.exception.DNSException as e:
-                print(
-                    f"bootstrap nodes not available (will try any known seed nodes): {str(e)}",
-                    file=sys.stderr)
-                sys.exit(1)
-
-            bootnodes = []
-
-            for i in range(NUM_BOOTNODES):
-                objectname = f"bootnodes/bootnode-{i}-enode"
-                qs = f"https://storage.googleapis.com/{BUCKET}/{objectname}?alt=media"
-                resp = requests.get(qs, headers={"authorization": f"Bearer {token}"})
-
-                if not resp:
-                    print(f"{objectname}: {str(resp)} {qs}")
-                    continue
-
-                j = resp.json()
-                ip, enode = j["ip"], j["enode"]
-                if ip not in bootips:
-                    print(f"stale ip from blob: {ip} for {enode}")
-                    continue
-                bootnodes.append((enode, ip))
-
-            if not len(bootnodes):
-                print("No bootnodes found, exiting")
-                sys.exit(1)
-            with open(f"{DATA_DIR}/BOOTNODES", "w") as f:
-                f.write(",".join([f"enode://{enode}@{ip}:{P2P_PORT}" for enode, ip in bootnodes]))
-            print(bootnodes)
             PYEND

@@ -85,6 +85,16 @@ spec:
           - name: NUM_BOOTNODES
             # SHOULD match spec.replicas
             value: "2"
+          - name: BOOTNODE0_PUB
+            valueFrom:
+              configMapKeyRef:
+                name: rrrbootenodes
+                key: BOOTNODE0_PUB
+          - name: BOOTNODE1_PUB
+            valueFrom:
+              configMapKeyRef:
+                name: rrrbootenodes
+                key: BOOTNODE1_PUB
           - name: POD_IP
             valueFrom:
               fieldRef:
@@ -202,7 +212,7 @@ spec:
             cat <<PYEND | python3
             import os, sys
             import base64, pathlib, subprocess, socket, json
-            import requests, dns.resolver, dns.exception
+            import requests
 
             DATA_DIR = "/var/lib/quorum/node"
 
@@ -221,7 +231,6 @@ spec:
 
             HOSTNAME = socket.gethostname()
             PODIP = socket.gethostbyname(HOSTNAME)
-            # this will break with ValueError on a non bootnode
             POD_INDEX = int(HOSTNAME.rsplit("-", 1)[-1])
 
             def init():
@@ -265,8 +274,6 @@ spec:
                 subprocess.check_call(
                     ["geth", "init", "--datadir", DATA_DIR, "/etc/config/genesis/genesis.json"])
 
-                # We only cache this so that we can set it in the --bootnodes geth
-                # option
                 with open(pathlib.Path(f"{DATA_DIR}/enode"), "w") as enodefile:
                     enodefile.write(enode)
 
@@ -281,36 +288,6 @@ spec:
 
             if not init():
                 sys.exit(1)
-
-            bootips = dict()
-            try:
-                ans = dns.resolver.resolve("bootnode.queth.svc.cluster.local", "a")
-                bootips = dict([(a.address, None) for a in ans])
-            except dns.exception.DNSException as e:
-                print(
-                    f"bootstrap nodes not available (will try any known seed nodes): {str(e)}",
-                    file=sys.stderr)
-
-            enode = None
-
-            # If this is a bootnode, put the current ip and enode in blob in a well known
-            # place.
-            if HOSTNAME.startswith("bootnode-"):
-                with open(f"{DATA_DIR}/enode") as enodefile:
-                    enode = enodefile.read()
-                    bootips[PODIP] = enode
-
-                bucket = os.environ["BUCKET"]
-                qs = (
-                    f"https://storage.googleapis.com/upload/storage/v1/b/"
-                    f"{bucket}/o?uploadType=media&name=bootnodes/{HOSTNAME}-enode")
-                resp = requests.post(
-                    qs, data=json.dumps(dict(enode=enode, ip=PODIP)),
-                    headers={"authorization": f"Bearer {TOKEN}", "content-type": "application/json"})
-                if not(resp):
-                    sys.exit(1)
-                print(resp)
-            print(bootips)
             PYEND
 
 

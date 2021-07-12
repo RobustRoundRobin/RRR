@@ -21,7 +21,7 @@ x-node-env-defaults:
   RRR_OPTS: "--rrr.nc 2 --rrr.ne 7 --rrr.q 4 --rrr.ta 2000 --rrr.confirmphase 1500 --rrr.roundlength 3500"
   # DISCOVERY_OPTS: "--nodiscover"
   NAT_OPTS: "--nat=none"
-  DISCOVERY_OPTS: "--netrestrict=${RRR_BOOTNODE_IP}/24 --bootnodes=enode://${RRR_BOOTNODE_PUB}@${RRR_BOOTNODE_IP}:7200"
+  DISCOVERY_OPTS: "--netrestrict=${RRR_NETRESTRICT} --bootnodes=enode://${RRR_BOOTNODE_PUB}@${RRR_BOOTNODE_DNS}:7200"
   P2P_PORT: 7200
   RPC_OPTS: "\
    --allow-insecure-unlock \
@@ -108,7 +108,7 @@ x-node-debug:
   <<: *node-base
   environment:
     << : *node-env-debug
-  image: eu.gcr.io/fetlar-1/rrr-delve:fetlar-ntp
+  image: eu.gcr.io/fetlar-1/rrr-delve:fetlar-latest
   volumes:
     - go-cache-volume:/tmp/go-cache
     - go-pkg-volume:/go/pkg
@@ -142,7 +142,7 @@ networks:
     internal: false
     ipam:
       config:
-        - subnet: ${RRR_BOOTNODE_IP}/24
+        - subnet: ${RRR_NETRESTRICT}
 services:
 
   # * One of the nodes can be set to << : *node-debug, to be debuged via a
@@ -155,14 +155,7 @@ services:
   node0:
     # << : *node-debug
     << : *node-defaults
-    #environment:
-    #  << : *node-env-defaults
-    #  NAT_OPTS: "--nat=extip:${RRR_BOOTNODE_IP}"
-
     working_dir: /nodes/node0
-    networks:
-      rrr:
-        ipv4_address: ${RRR_BOOTNODE_IP}
 
   node1:
     << : *node-defaults

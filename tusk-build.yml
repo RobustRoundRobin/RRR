@@ -44,14 +44,9 @@ tasks:
             cp -v $(pwd)/devclutter/buildcontext/Dockerfile-rrrctl Dockerfile-rrrctl
             cp -v $(pwd)/devclutter/compose/Dockerfile-delve Dockerfile-delve
 
-
             TAG=fetlar-ntp
 
-            cp buildcontext/.dockerignore ${workdir}/buildcontext/.dockerignore
-            cp buildcontext/Dockerfile* ${workdir}/buildcontext/
-            cp buildcontext/skaffold.yaml ${workdir}/buildcontext/
-
-            cd ${workdir}/buildcontext
+            cd ${workdir}
             export SKAFFOLD_DEFAULT_REPO="eu.gcr.io/fetlar-1"
             skaffold build -t fetlar-latest
 
