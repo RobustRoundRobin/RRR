@@ -10,7 +10,7 @@ resource "google_container_node_pool" "custom_nodepool" {
 
   autoscaling {
     min_node_count = lookup(each.value, "min_node_count", 1)
-    max_node_count = lookup(each.value, "max_node_count", 3)
+    max_node_count = lookup(each.value, "max_node_count", 8)
   }
 
   management {
