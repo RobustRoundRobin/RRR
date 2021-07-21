@@ -58,7 +58,7 @@ module "cluster" {
   source_subnetwork_ip_ranges_to_nat  = "LIST_OF_SUBNETWORKS"
   source_ip_ranges_to_nat             = ["ALL_IP_RANGES"]
   nat_log_filter                      = "ERRORS_ONLY"
-  logging_service                     = "none" # $$$
+  logging_service                     =  var.logging_service # $$$
   monitoring_service                  = "none" # $$$
 
   # We seperately define the node pools, as per recomendation here
